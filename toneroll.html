@@ -1,0 +1,325 @@
+<!--  This file is part of Toneroll.
+
+    Toneroll is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Toneroll is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Toneroll.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2015 Fragkopoulos Markos - exog3n@gmail.com-->
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Toneroll Schema Demo</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+        <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+        <script type="text/javascript" src="./js/jquery.doubleScroll.js"></script>
+        <script type="text/javascript" src="./js/bootstrap.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.7.1/themes/base/jquery-ui.css">
+        <link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css" />
+        <link rel="stylesheet" type="text/css" href="./css/toneroll_new.css" />
+        <link href='https://fonts.googleapis.com/css?family=Montserrat:400,700' rel='stylesheet' type='text/css'>
+    </head>
+    <body class="demo-page"> 
+        <div id="loading-wrapper"></div>
+        <div id="board" style="position:relative; width:100%; overflow: auto; z-index:10;">
+            <!--        <div id="board" style="position:relative; width:100%; overflow: auto; z-index:10; cursor:grab; cursor:-webkit-grab; cursor:-moz-grab; -webkit-user-select: none;  -moz-user-select: moz-none;  -ms-user-select: none;
+                         user-select: none;">-->
+            <div id="pianoroll" class="content"> 
+                <div class="canvas-container" style="position:relative;">
+                    <div class="overflow-container" style="-webkit-backface-visibility: hidden; -moz-backface-visibility: hidden; backface-visibility: hidden;">
+                        <div class="top-wrapper" style="position:fixed; margin:0 0 0 0; padding:10px 0 30px 50px; height:20px; z-index: 3; background-color: #fff;     box-shadow: 0px 2px 10px 0px #ececec;">
+                            <canvas class="barsCanvas" >
+                            </canvas>
+                        </div>
+                    </div>
+                    <div class="overflow-container" style="-webkit-backface-visibility: hidden; -moz-backface-visibility: hidden; backface-visibility: hidden;">
+                        <div class="left-wrapper" style="position:fixed; margin:0 0 0 0; padding:30px 0 0 10px; z-index: 2; background-color: #fff; width:40px; ">
+                            <canvas class="notesCanvas" >
+                            </canvas>
+                        </div>
+                    </div>
+                    <div class="center-wrapper" style="position:absolute; top:30px; left:50px; margin-bottom:124px; background-color: #fff; z-index: -2;">
+                        <canvas class="pianorollCanvas" >
+                        </canvas>
+                    </div>
+                    <!--                    <div class="center-wrapper" style="position:absolute; top:30px; left:50px; margin-bottom:124px; background-color: transparent; z-index: -1;">
+                                            <canvas class="signalCanvas" >
+                                            </canvas>
+                                        </div>-->
+                    <div class="center-wrapper" style="position:absolute; top:30px; left:50px; margin-bottom:124px; background-color: transparent; z-index: 0;">
+                        <canvas class="notesOverlayCanvas" >
+                        </canvas>
+                    </div>
+                    <div class="center-wrapper" style="position:absolute; top:30px; left:50px; margin-bottom:124px; background-color: transparent; z-index: 1;">
+                        <canvas  id="topCanvas" class="overlayCanvas" >
+                        </canvas>
+                    </div>
+                    <div class="overflow-container" style="-webkit-backface-visibility: hidden; -moz-backface-visibility: hidden; backface-visibility: hidden;">
+                        <div class="bottom-wrapper" style="position:fixed; left:0; padding:4px 0 30px 50px; height:20px; z-index: 2; background-color: #fff; box-shadow: 0px -2px 10px #ececec;">
+                            <canvas class="timeCanvas" >
+                            </canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="debug" style="    position: absolute;            top: 0;             z-index: 9999;             background: yellow;">
+            <p>threshold</p>
+            <input id="threshold" type="range" value="-10" step="1" min="-50" max="50">
+            <p>reduction</p>
+            <input id="reduction" type="range" value="10" step="1" min="0" max="50">
+            <p>knee</p>
+            <input id="knee" type="range" value="6" step="1" min="0" max="20">
+            <p>ratio</p>
+            <input id="ratio" type="range" value="0" step="1" min="0" max="50">
+            <p>attack</p>
+            <input id="attack" type="range" value="40" step="1" min="0" max="5000">
+            <p>release</p>
+            <input id="release" type="range" value="200" step="1" min="0" max="5000">
+        </div>
+        <footer style=" z-index: 999; height:60px; ">
+            <div class="footer-wrapper">
+                <div id="help" class="col-sm-3 col-xs-6">
+                    <p class="info default">Hover on any element to get info about it</p>
+                    <p class="info element indicatorPitch">Help for indicator pitch</p>
+                    <p class="info element indicatorNote">Help for indicator note</p>
+                    <p class="info element indicatorDetune">Help for indicator detune</p>
+                    <p class="info element indicatorTempo">Help for indicator tempo</p>
+                    <p class="info element pianorollBars">Help for pianoroll bars</p>
+                    <p class="info element pianorollNotes">Help for pianoroll notes</p>
+                    <p class="info element pianorollTime">Help for pianoroll time</p>
+                    <p class="info element pianorollMidi">Help for pianoroll midi</p><span id="currentNote"></span>
+                </div>
+                <div id="logo" class="col-sm-3 col-xs-6" style="z-index: 999; height:60px;">
+                    <img id="logoMask" src="logo-mask.png" style="height:58px; padding: 8px; position:absolute" />
+                    <canvas class="volumeCanvas" style="height:58px; padding: 8px; position:absolute">
+                    </canvas>
+                </div>
+                <div id="controls" class="col-sm-3 col-xs-6" style="z-index: 999; height:60px;">
+                    <!--user control buttons-->
+                    <button id="audio-input-btn" type="button" class="custom-button" title="Select Audio Input" data-toggle="modal" data-target="#select-input-modal">Audio Input</button>
+                    <button id="startTranscription" class="custom-button" title="Transcribe">Transcribe</button>
+                    <button id="startPlayback" type="button" class="custom-button" title="Start Playback" data-toggle="modal" data-target="#playback-options-modal" style="display:none;" >Start Playback</button>
+                    <button id="stop" class="custom-button" title="Stop">Stop</button>
+                    <button id="clear" class="custom-button" title="Clear">Clear</button>
+                    <button id="settings" class="custom-button" title="Settings" data-toggle="modal" data-target="#settings-options-modal">Settings</button>
+                </div>
+                <div id="indicator" class="col-sm-3 col-xs-6">
+                    <div id="detector" class="vague">
+                        <div class="pitch"><span id="pitch">-   </span>Hz</div>
+                        <div class="note"><span id="note">- </span></div>   
+                        <div class="detune"><div id="detune" class="flat"><span id="detune_amt">- </span><span id="flat"> cents ♭</span><span id="sharp"> cents ♯</span></div></div>
+                        <!--<div class="tempo"><span id="tempo">-  </span> bpm</div>-->
+                    </div>
+                    <div id="tempo-controller">
+                        <div class="metronome"><input id="metronomeActivate" type="checkbox" name="Metronome" value="Off">M<br></div>
+                        <div class="tap"><button id="tap" name="Tap" class="custom-button">Tap</button></div>
+                        <div class="tempo"><input type="number" id="tempo" value="120" min="40" max="200"> bpm</div>
+                        <div class="auto" style="display:none"><input type="checkbox" id="autoTempo" name="Auto Tempo" class="custom-button" value="Off" >Auto<br></div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+        <div id="messages" style="display: none;">
+            <div class="message-container">
+            </div>
+        </div>
+
+        <!-- Modals-->
+
+        <!--audio input modal-->
+        <div id="select-input-modal" class="modal fade" role="dialog">
+            <div class="modal-dialog modal-sm">
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4 class="modal-title">Select an audio input</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="first-option">
+                            <div id="selectInstrument" class="column-control-bar" data-title='Instrument' style="display:block;">
+                                <h5>Select the instrument you want to transcribe</h5>
+                                <select name="instrumentSelection" id="instrumentSelection">
+                                    <option value="" disabled = "disabled" selected="selected">Select Instrument</option>
+                                    <option value="piano">Piano</option>
+                                    <option value="guitar">Guitar</option>
+                                    <option value="violin">Violin</option>
+                                    <option value="viola">Viola</option>
+                                    <option value="cello">Cello</option>
+                                    <option value="bass">Bass</option>
+                                    <option value="harp">Harp</option>
+                                    <option value="trumpet">Trumpet</option>
+                                    <option value="tenorTrombone">Tenor Trombone</option>
+                                    <option value="bassTrombone">Bass Trombone</option>
+                                    <option value="frenchHorn">French Horn</option>
+                                    <option value="tuba">Tuba</option>
+                                    <option value="piccolo">Piccolo</option>
+                                    <option value="flute">Flute</option>
+                                    <option value="oboe">Oboe</option>
+                                    <option value="clarinet">Clarinet</option>
+                                    <option value="altoSax">Alto Sax</option>
+                                    <option value="tenorSax">Tenor Sax</option>
+                                    <option value="bassoon">Bassoon</option>
+                                    <option value="constraBassoon">Contrabassoon</option>
+                                    <option value="male">Male Vocals</option>
+                                    <option value="female">Female Vocals</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="second-option" style="display: none">
+                            <h5>source text</h5>
+                            <button id="selectMicSource" class="source-button custom-button" title="Mic" data-dismiss="modal">Mic</button>
+                            <input id="selectSampleSource" class="source-button custom-button" title="Select File" type="file" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--configure microphone-->
+        <div id="mic-config-modal" class="modal fade" role="dialog">
+            <div class="modal-dialog modal-sm">
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4 class="modal-title">Microphone Configure</h4>
+                    </div>
+                    <div class="modal-body">
+                        <h5>settings text</h5>
+                        <div id="tunerDetector" class="vague">
+                            <div class="tunerPitch"><span id="tunerPitch">-   </span>Hz</div>
+                            <div class="tunerNote"><span id="tunerNote">- </span></div>   
+                            <div class="tunerDetune"><div id="tunerDetune" class="flat"><span id="tunerDetune_amt">- </span><span id="flat"> cents ♭</span><span id="sharp"> cents ♯</span></div></div>
+                            <!--<div class="tempo"><span id="tempo">-  </span> bpm</div>-->
+                        </div>
+                        <div id="volume">
+                            <canvas class="meter" width="20" height="150"></canvas>
+                            <input id="changeGain" type="range" value="4" step="1" min="0" max="12">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="micReady" type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--playback options-->
+        <div id="playback-options-modal" class="modal fade" role="dialog">
+            <div class="modal-dialog modal-sm">
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4 class="modal-title">Playback text</h4>
+                    </div>
+                    <div class="modal-body">
+                        <button id="originalPlayback" class="custom-button" title="Play recorded track" data-dismiss="modal">Original</button>
+                        <button id="synthPlayback" class="custom-button" title="Play transcripted track with synth" data-dismiss="modal">Synthesizer</button>
+                        <button id="samplerPlayback" class="custom-button" title="Play transcripted track with sampler" data-dismiss="modal">Sampler</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--settings options-->
+        <div id="settings-options-modal" class="modal fade" role="dialog">
+            <div class="modal-dialog modal-sm">
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4 class="modal-title">Settings</h4>
+                    </div>
+                    <div class="modal-body">
+                        <label for="changePrecision">Transcription precision</label>
+                        <input id="changePrecision" type="range" value="60" step="10" min="30" max="160">
+                        <input id="changeAutocorrect" type="checkbox" name="preproccesing" value="On">Preprocessing<br>
+                        <label for="changeGain">Gain</label>
+                        <input id="changeGain" type="range" value="4" step="1" min="0" max="20">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--demo intro-->
+        <div id="demo-intro-modal" class="modal fade" role="dialog">
+            <div class="modal-dialog modal-sm">
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4 class="modal-title">LOGO</h4>
+                    </div>
+                    <div class="modal-body">
+                        <p>Welcome to Toneroll official demo.</br>
+                            This is just a proof of concept, but still useful where you can transcribe in real-time a musical piece and playback it.</br>
+                            The demo is currently able to transcribe a monophonic audio signal into midi notes, from a mic source or a file. Then the user is able to reproduce what he/she transcribed. You can simply test it with microphone with your whistling.</br>
+                            The default pianoroll time signature on this demo is 4/4.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--demo ended-->
+        <div id="demo-ended-modal" class="modal fade" role="dialog">
+            <div class="modal-dialog modal-sm">
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                        <h4 class="modal-title">Thank you for trying Toneroll</h4>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Begin MailChimp Signup Form -->
+                        <link href="//cdn-images.mailchimp.com/embedcode/slim-081711.css" rel="stylesheet" type="text/css">
+                        <!--                        <style type="text/css">
+                                                    #mc_embed_signup{background:#fff; clear:left; font:14px Helvetica,Arial,sans-serif;  width:500px;}
+                                                    /* Add your own MailChimp form style overrides in your site stylesheet or in this style block.
+                                                       We recommend moving this block and the preceding CSS link to the HEAD of your HTML file. */
+                                                </style>-->
+                        <div id="mc_embed_signup">
+                            <form action="//toneroll.us12.list-manage.com/subscribe/post?u=8ef7099202b2d05fc8c483df9&amp;id=51fc86a150" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
+                                <div id="mc_embed_signup_scroll">
+                                    <label for="mce-EMAIL">Stay in touch with Toneroll?</label>
+                                    <input type="email" value="" name="EMAIL" class="email" id="mce-EMAIL" placeholder="email address" required>
+                                    <!-- real people should not fill this in and expect good things - do not remove this or risk form bot signups-->
+                                    <div style="position: absolute; left: -5000px;" aria-hidden="true"><input type="text" name="b_8ef7099202b2d05fc8c483df9_51fc86a150" tabindex="-1" value=""></div>
+                                    <div class="clear"><input type="submit" value="Subscribe" name="subscribe" id="mc-embedded-subscribe" class="button"></div>
+                                </div>
+                            </form>
+                        </div>
+                        <p>You can still playback your composition by clicking play button!</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--load toneroll application script-->
+        <script type="text/javascript" src="./WAAclock.js"></script>
+        <script type="text/javascript" src="./toneroll.js"></script>
+    </body>
+
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>performace check</title>
+</head>
+<body>
+​
+<div></div>
+​
+<script type="text/javascript">
+
+	// 	var average = 0  ;
+	// 	for(var j=0;j<1000;j++){
+	// 		var time1 = performance.now();
+	// 		for(var i=0;i<10000;i++){
+
+	// 			Math.random();
+	// //			console.log(performance.now());
+	// 		}
+	// 		var time2 = performance.now();
+	// 		var time = time2-time1;
+	// 		average = average + time ;
+	// 	}
+	// 	average = average/10 ;
+	// 	document.write(average);
+
+	// 	function getAverage(){
+	// 		return average;
+
+	// 	};
+
+	// 	console.log("average time : "+average);
+
+//	var AudioCtx = new AudioContext();
+
+	var time2 = performance.now();
+	var counter = 0 ;
+	for(var time1 = performance.now();time2<time1+10;counter++){
+		Math.random();
+		time2 = performance.now();
+	}
+	console.log("time1 : "+time1+", time2 : "+time2);
+	document.write("counter : "+counter);
+
+</script>
+</body>
+</html>

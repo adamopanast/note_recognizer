@@ -1,0 +1,204 @@
+body {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    color: #666;
+    background-color: #fff;
+}
+
+/*board*/
+#board{
+    /*cursor: move;*/
+    /*    border: 2px solid #ebebeb;
+        padding: 4px;
+        margin: 8px;*/
+    /*    box-shadow:1px 1px 8px #ccc;
+        background-color:#fff; */
+}
+#board::-webkit-scrollbar{
+    -webkit-appearance: none;
+    z-index: 9999;
+}
+
+#board::-webkit-scrollbar-thumb {
+    background-color: rgba(204,204,204,0.7);
+    border: 3px solid transparent;
+    border-radius: 9px;
+    background-clip: content-box;
+    z-index: 9999;
+}
+#board::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(204,204,204,1);
+}
+
+#board::-webkit-scrollbar-track {
+    background-color: #ececec;
+    width: 15px;
+    z-index: 9999;
+}
+#pianoroll {
+    width: 100%;
+    height: 100%;
+}
+#pianoroll > .doubleScroll{
+    width: 100%;
+    height: 100%;
+    /*overflow:auto;*/
+}
+.doubleScroll-scroll-wrapper{
+    width:auto;
+}
+#pianoroll > canvas { margin: 0; padding: 1em; white-space: nowrap; }
+
+/*footer*/
+footer{
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    border: 1px solid #ccc;
+    background-color: #ececec;
+}
+/*messages*/
+#messages {
+    position: fixed;
+    top: 10%;
+    width: 100%;
+    z-index: 99;
+}
+.message-container {
+    margin: 0 auto;
+    width: 40%;
+    padding: 10px 20px;
+    border-radius: 4px;
+}
+
+/*help*/
+#help{
+    float: left;
+    /*width: 60%;*/
+    padding: 4px 16px;
+}
+#help .info{
+    margin: 0;
+    line-height: 48px;
+}
+#help .info.element{
+    display: none;
+}
+#help .info.pianorollMidi{
+    float: left;
+    width: 60%;
+}
+#help #currentNote{
+    float: right;
+}
+
+/*indicator*/
+#indicator{
+    float: right;
+    padding: 4px 16px;
+}
+#detector{
+    width:50%;
+}
+#detector .pitch,
+#detector .note,
+#detector .detune{
+    float:left;
+    padding: 0px 8px;
+}
+#tempo-controller{
+    width:40%;
+    float:right;
+    padding: 0px 2%;
+    color:black !important;
+}
+#tempo-controller .tempo{
+    float:left;
+}
+#tempo-controller .tempo input {
+    width: 72px;
+    height: 24px;
+    padding: 0 0 0 4px;
+    margin: 4px 0;
+}
+#tempo-controller .tap{
+    float:left;
+    width: 48px;
+    height: 24px;
+    margin: 4px 0;
+}
+#tempo-controller .metronomeActivate{
+    float:left;
+    color:black !important;
+}
+#tempo-controller .metronome,
+#tempo-controller .auto{
+    float: left;
+    height: 24px;
+}
+
+#pitch,
+#note,
+#detune,
+#tempo{
+    line-height: 48px;
+}
+#note {
+    font-size: 28px; 
+}
+#pitch,
+#tempo{
+    font-size: 16px; 
+}
+#detune{
+    font-size:14px;
+}
+div.confident { color: black; }
+div.vague { color: lightgrey; }
+#flat { display: none; }
+#sharp { display: none; }
+.flat #flat { display: inline; }
+.sharp #sharp { display: inline; }
+
+
+.pianorollCanvas {
+     -webkit-box-shadow: 0 0 4px rgba(0,0,0,0.2), inset 0 0 50px rgba(0,0,0,0.1);
+     -moz-box-shadow: 0 0 4px rgba(0,0,0,0.2), inset 0 0 50px rgba(0,0,0,0.1);
+     background-color: #fff;
+     box-shadow: 0 0 5px rgba(0,0,0,0.2), inset 0 0 50px rgba(0,0,0,0.1);
+     margin: 0 auto;
+     /*padding: 50px;*/
+     position: relative;
+     /*width: 500px;*/   
+}
+
+.pianorollCanvas:before, .pianorollCanvas:after {
+     -moz-box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); 
+     -moz-transform: skew(-5deg) rotate(-5deg);  
+     -ms-transform: skew(-5deg) rotate(-5deg);  
+     -o-transform: skew(-5deg) rotate(-5deg);
+     -webkit-box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);  
+     -webkit-transform: skew(-5deg) rotate(-5deg); 
+     background: transparent;
+     bottom: 12px;
+     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+     content: ' ';
+     height: 10px;
+     left: 12px;
+     position: absolute;
+     transform: skew(-5deg) rotate(-5deg);  
+     width: 40%;
+     z-index: -1;  
+}
+
+.pianorollCanvas:after  {
+  
+     -moz-transform: skew(5deg) rotate(5deg);  
+     -ms-transform: skew(5deg) rotate(5deg);  
+     -o-transform: skew(5deg) rotate(5deg);
+     -webkit-transform: skew(5deg) rotate(5deg);   
+     left: auto;  
+     right: 12px;  
+     transform: skew(5deg) rotate(5deg);  
+}  
