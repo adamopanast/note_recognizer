@@ -36,7 +36,7 @@ function stickBrokens(snapshotsGroups) {
         var onsetFounded = null;
         if (snapshotsGroups[i].tempOffset.pointer - snapshotsGroups[i].tempOnset.pointer < minRow) {
             // stick to group if has an onset in it
-            for (var j = 0; j < snapshotsGroups[i].snapshots.length; j++) {
+            for (var j = 0; j < snapshotsGroups[i].snapshots.length-1; j++) {
                 console.log(snapshots[snapshotsGroups[i].snapshots[j].pointer - 1]);
                 console.log(snapshotsGroups[i].snapshots[j]);
                 console.log(snapshots[snapshotsGroups[i].snapshots[j].pointer + 1]);
@@ -57,6 +57,7 @@ function stickBrokens(snapshotsGroups) {
                 }
                 function changeOnset(){
                     if (onsetFounded.note === (snapshotsGroups[i + 1].tempOnset.note || snapshotsGroups[i + 1].snapshots[1].note)) {
+                        
                         snapshotsGroups[i + 1].tempOnset.isOnset = false;
                         snapshotsGroups[i + 1].tempOnset = onsetFounded;
                         snapshotsGroups[i + 1].tempOnset.isOnset = true;
@@ -83,6 +84,7 @@ function fillGroups(snapshotsGroups) {
             tmpPointer++;
         }
     }
+    return snapshotsGroups;
 }
 
 function checkTempOnsets(snapshotsGroups) {
@@ -172,10 +174,9 @@ function checkTempOnsets(snapshotsGroups) {
 function checkTempOffsets(snapshotsGroups) {
     var groups = snapshotsGroups;
     // process groups array
-    for (var i = 0; i < snapshotsGroups.length; i++) {
+    for (var i = 0; i < snapshotsGroups.length-1; i++) {
         var tempSnap = groups[i].tempOffset;
         var pointer = tempSnap.pointer;
-
         if (snapshots[pointer + 1].amp > 10) {
             do {
                 pointer++;

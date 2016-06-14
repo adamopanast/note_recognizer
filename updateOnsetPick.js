@@ -17,6 +17,7 @@
 'use strict';
 
 var self = this;
+var minNoteDuration = 0;
 var normalizedInput = [];
 var dynamicThresholds = [];
 var onsets = [];
@@ -61,8 +62,8 @@ var onsetDetector = {
             var isOnset = false;
             if ((signal > threshold)) {
                 // to avoid map as onset the second occuring event in the same note we use prevonset position
-                var minNoteDuration = 2; // TODO -> we need to calculate the minimaum note duration in beats that the system can separate - for the caclulation we will need: thread rate, and? -for 50hz thread we use 2, for 75 we use 3
                 if (cycle - prevOnset > minNoteDuration) {
+//                    console.log(cycle);
                     isOnset = true;
                 } else {
                     isOnset = false;
@@ -132,8 +133,9 @@ function createMedianFilter(length) {
 
 // Web Worker message listener
 self.addEventListener('message', function (e) {
+    minNoteDuration = e.data.minNoteDuration;
     // pushed the last normalized value passed on worker
-    normalizedInput.push(e.data);
+    normalizedInput.push(e.data.normalized);
     var prevOnset = onsets[onsets.length - 1] || 0;
     // narrow down the array and sent it for picking
     var onset = onsetDetector.pick(onsetDetector.inputProcessor(normalizedInput, cycle), cycle, prevOnset);
