@@ -150,10 +150,10 @@ function Workspace() {
     _this.events.startTranscription = function () {
         if (_this.workflowController.state === 'MIC_READY') {
             var activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
-            if (Settings.user.ui.volumeMeter) {
-                activeChannel.source.volumeMeter.stopDraw();
-                activeChannel.source.volumeMeter.drawStatic();
-            }
+//            if (Settings.user.ui.volumeMeter) {
+//                activeChannel.source.volumeMeter.stopDraw();
+//                activeChannel.source.volumeMeter.drawStatic();
+//            }
         }
         _this.masterRetriever.audioTranscriber.thread.start();
         _this.masterRetriever.audioRecorder.rec();
@@ -557,11 +557,6 @@ AudioDevices.sources.mic = function (connectTo) {
         _this.output = _this.device;
         _this.output.connect(connectTo);
 
-        if (Settings.user.ui.volumeMeter) {
-            _this.volumeMeter = new VisualDevices.drawers.volumeDrawer();
-            _this.device.connect(_this.volumeMeter.input);
-            _this.volumeMeter.drawSignal();
-        }
     }
     if (!navigator.getUserMedia) {
         navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
@@ -3217,153 +3212,6 @@ VisualDevices.drawers.overlayDrawer = function () {
     };
 };
 /**
- * volumeDrawer() draw on a curved line represent the input audio signal
- *
- */
-VisualDevices.drawers.volumeDrawer = function () {
-    var _this = this;
-    _this.volumeCanvas = document.getElementsByClassName("volumeCanvas")[0];
-    _this.volumeContext = _this.volumeCanvas.getContext('2d');
-    _this.volumeCanvas.width = 300;
-    _this.volumeCanvas.height = 42;
-    _this.rate = (1000 / Settings.getters.getVolumeMeterThreadRate());
-    _this.mask = document.getElementById("logoMask");
-    _this.gradient = _this.volumeContext.createLinearGradient(0, 20, 0, 40);
-    _this.gradient.addColorStop(1, '#DAA15C');
-    _this.gradient.addColorStop(0.75, '#DAA15C');
-    _this.gradient.addColorStop(0.5, '#000000');
-    _this.gradient.addColorStop(0, '#DAA15C');
-    _this.analyser = audioContext.createAnalyser();
-    _this.analyser.fftSize = 1024;
-    _this.input = _this.analyser;
-    // request animation frame workflow variables
-    var requestId = 0;
-    var fpsInterval = _this.rate;
-    var then = 0;
-    var startTime, now, then, elapsed;
-    // shim layer with setTimeout fallback
-    window.requestAnimFrame = (function () {
-        return  window.requestAnimationFrame ||
-                window.webkitRequestAnimationFrame ||
-                window.mozRequestAnimationFrame;
-    })();
-    window.cancelAnimFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame;
-    _this.drawSignal = function () {
-
-        requestId = requestAnimFrame(_this.drawSignal);
-        // throttle requestAnimationFrame to a specific frame rate
-        now = Date.now();
-        elapsed = now - then;
-        // if enough time has elapsed, draw the next frame
-        if (elapsed > fpsInterval) {
-            // Get ready for next frame by setting then=now, but also adjust for your
-            // specified fpsInterval not being a multiple of RAF's interval
-            then = now - (elapsed % fpsInterval);
-            _this.volumeContext.save();
-            _this.volumeContext.drawImage(_this.mask, 0, 0);
-            _this.volumeContext.globalCompositeOperation = "source-in";
-            _this.volumeContext.fillStyle = _this.gradient;
-            _this.volumeContext.fillRect(0, 0, _this.volumeCanvas.width, _this.volumeCanvas.height);
-            _this.volumeContext.globalCompositeOperation = "destination-atop";
-            _this.volumeContext.drawImage(_this.mask, 0, 0);
-            var bufferLength = _this.analyser.frequencyBinCount;
-            var dataArray = new Uint8Array(bufferLength);
-            _this.analyser.getByteFrequencyData(dataArray);
-            dataArray = _this.runningMedian(dataArray)
-            _this.volumeContext.lineWidth = 40;
-            _this.volumeContext.strokeStyle = '#ececec';
-            _this.volumeContext.beginPath();
-            var sliceWidth = 900 * 2.0 / bufferLength;
-            var x = -100;
-            for (var i = 0; i < bufferLength; i++) {
-                var v = null;
-                v = dataArray[i] / 512.0;
-                var y = v * 128;
-                if (i === 0) {
-                    _this.volumeContext.moveTo(x, y + 10);
-                } else {
-                    _this.volumeContext.lineTo(x, y + 10);
-                }
-
-                x += sliceWidth;
-            }
-            _this.volumeContext.lineTo(_this.volumeCanvas.width, _this.volumeCanvas.height / 2 + 10);
-            _this.volumeContext.stroke();
-            _this.volumeContext.restore();
-        }
-    };
-    _this.runningMedian = function (signal) {
-        var dynamicThresholds = [];
-        var d = 0;
-        var l = 1;
-        for (var i = 0; i < signal.length; ++i) {
-            dynamicThresholds[i] = (d + l) * _this.median(signal[i]); // d -> constant threshold , l -> positive constant
-        }
-        return dynamicThresholds;
-    }
-    _this.createMedianFilter = function (length) {
-        var buffer = new Float64Array(length);
-        var history = new Int32Array(length);
-        var counter = 0;
-        var bufCount = 0;
-        function insertItem(x) {
-            var nextCounter = counter++;
-            var oldCounter = nextCounter - length;
-            //First pass:  Remove all old items
-            var ptr = 0;
-            for (var i = 0; i < bufCount; ++i) {
-                var c = history[i];
-                if (c <= oldCounter) {
-                    continue
-                }
-                buffer[ptr] = buffer[i];
-                history[ptr] = c;
-                ptr += 1;
-            }
-            bufCount = ptr;
-            //Second pass:  Insert x
-            if (!isNaN(x)) {
-                var ptr = bufCount;
-                for (var j = bufCount - 1; j >= 0; --j) {
-                    var y = buffer[j];
-                    if (y < x) {
-                        buffer[ptr] = x;
-                        history[ptr] = nextCounter;
-                        break
-                    }
-                    buffer[ptr] = y;
-                    history[ptr] = history[j];
-                    ptr -= 1;
-                }
-                if (j < 0) {
-                    buffer[0] = x;
-                    history[0] = nextCounter;
-                }
-                bufCount += 1;
-            }
-
-            //Return median
-            if (!bufCount) {
-                return NaN;
-            } else if (bufCount & 1) {
-                return buffer[bufCount >>> 1];
-            } else {
-                var mid = bufCount >>> 1;
-                return 0.5 * (buffer[mid - 1] + buffer[mid]);
-            }
-        }
-        return insertItem;
-    }
-    _this.median = _this.createMedianFilter(32);
-    _this.stopDraw = function () {
-        cancelAnimFrame(requestId);
-        requestId = 0;
-    };
-    _this.drawStatic = function () {
-        _this.volumeContext.drawImage(_this.mask, 0, 0);
-    };
-};
-/**
  * momentaryOutput() indicate the current snapshot transcripted details
  *
  */
@@ -4011,7 +3859,6 @@ Settings.defaults.global = {tempo: 120, // {BPM}
     masterVolume: 1,
     systemThreadRate: 60, // {Hz} 
     visualThreadRate: 30, // {Hz} 
-    volumeMeterThreadRate: 25, // {Hz} 
     pitchDetectorFFTSize: 2048,
     onsetDetectorFFTSize: 2048,
     onsetDetectorFrameSize: 1024,
@@ -4076,7 +3923,6 @@ Settings.static = {noteStrings: ["C0", "C#0", "D0", "D#0", "E0", "F0", "F#0", "G
 Settings.user.ui = {
     autoFollow: true,
     metronomeFlash: true,
-    volumeMeter: true,
     indicateOutput: true
 };
 Settings.setters = {
@@ -4106,9 +3952,6 @@ Settings.getters = {
     },
     getVisualThreadRate: function () {
         return Settings.defaults.global.visualThreadRate;
-    },
-    getVolumeMeterThreadRate: function () {
-        return Settings.defaults.global.volumeMeterThreadRate;
     },
     getTempo: function () {
         return Settings.defaults.global.tempo;
@@ -4310,7 +4153,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 2;
         return stars = 1;
     }
@@ -4321,7 +4163,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 2;
     }
     else if (counter > 500 && counter < 800)
@@ -4331,7 +4172,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 3;
     }
     else if (counter > 800 && counter < 1500)
@@ -4341,7 +4181,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 4;
     }
     else if (counter > 1500 && counter < 3000)
@@ -4350,7 +4189,6 @@ function adjustAppResources(counter) {
         Settings.defaults.global.visualThreadRate = 20;
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 5;
     }
     else if (counter > 3000 && counter < 10000)
@@ -4358,35 +4196,30 @@ function adjustAppResources(counter) {
         Settings.defaults.global.systemThreadRate = 60;
         Settings.defaults.global.visualThreadRate = 25;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 6;
     }
     else if (counter > 10000 && counter < 30000)
     {
         Settings.defaults.global.systemThreadRate = 70;
         Settings.defaults.global.visualThreadRate = 30;
-        Settings.user.ui.volumeMeter = false;
         return stars = 7;
     }
     else if (counter > 30000 && counter < 80000)
     {
         Settings.defaults.global.systemThreadRate = 90;
         Settings.defaults.global.visualThreadRate = 30;
-        Settings.defaults.global.volumeMeterThreadRate = 25;
         return stars = 8;
     }
     else if (counter > 80000 && counter < 200000)
     {
         Settings.defaults.global.systemThreadRate = 110;
         Settings.defaults.global.visualThreadRate = 30;
-        Settings.defaults.global.volumeMeterThreadRate = 25;
         return stars = 9;
     }
     else if (counter > 200000)
     {
         Settings.defaults.global.systemThreadRate = 140;
         Settings.defaults.global.visualThreadRate = 40;
-        Settings.defaults.global.volumeMeterThreadRate = 30;
         return stars = 10;
     }
 }
