@@ -136,11 +136,12 @@ self.addEventListener('message', function (e) {
     minNoteDuration = e.data.minNoteDuration;
     // pushed the last normalized value passed on worker
     normalizedInput.push(e.data.normalized);
+    cycle = e.data.currentCycle;
     var prevOnset = onsets[onsets.length - 1] || 0;
     // narrow down the array and sent it for picking
     var onset = onsetDetector.pick(onsetDetector.inputProcessor(normalizedInput, cycle), cycle, prevOnset);
 
-    cycle++;
+
     // return onsets
     self.postMessage(onset);
 }, false);

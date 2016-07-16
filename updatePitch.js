@@ -48,7 +48,7 @@ function autoCorrelate(pitchAnalyserTempBuf, sampleRate) {
 //    }
 
     if (pitchAnalyserTempBuf.length < (SIZE + MAX_SAMPLES - MIN_SAMPLES)) {
-        return -1;  // Not enough data
+        return {fq: -1, rms: rms};  // Not enough data
     }
     for (var i = 0; i < SIZE; i++) {
         var val = (pitchAnalyserTempBuf[i] - 128) / 128;
@@ -56,7 +56,7 @@ function autoCorrelate(pitchAnalyserTempBuf, sampleRate) {
     }
     rms = Math.sqrt(rms / SIZE);
     if (rms < 0.01)                                                             // recognize silence                                                            
-        return -1;
+        return {fq: -1, rms: rms};
 
     var lastCorrelation = 1;
 
@@ -117,7 +117,7 @@ function autoCorrelate(pitchAnalyserTempBuf, sampleRate) {
 // console.log("f = " + sampleRate/best_offset + "Hz (rms: " + rms + " confidence: " + best_correlation + ")")
         return {fq: sampleRate / best_offset, rms: rms};
     }
-    return -1;
+    return {fq: -1, rms: rms};
     //	var best_frequency = sampleRate/best_offset;
 }
 

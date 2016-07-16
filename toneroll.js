@@ -1,7 +1,6 @@
 'use strict';
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var audioContext = new this.AudioContext();
-
 /**
  * AudioDevices is a global namespace for audio device classes
  *
@@ -10,7 +9,6 @@ var AudioDevices = AudioDevices || {};
 AudioDevices.sources = {};
 AudioDevices.utilities = {};
 AudioDevices.retrievers = {};
-
 /**
  * SystemDevices is a global namespace for system device classes
  *
@@ -24,7 +22,6 @@ SystemDevices.classifiers = {};
 SystemDevices.threads = {};
 SystemDevices.workers = {};
 SystemDevices.controllers = {};
-
 /**
  * VisualDevices is a global namespace for visual device classes
  *
@@ -33,7 +30,6 @@ var VisualDevices = VisualDevices || {};
 VisualDevices.initializers = {};
 VisualDevices.drawers = {};
 VisualDevices.indicators = {};
-
 /**
  * UI is a global namespace for setup the ui properties
  *
@@ -42,7 +38,6 @@ var UI = UI || {};
 UI.panels = {};
 UI.draw = {};
 UI.reactions = {};
-
 /**
  * Events is a global namespace for store system events and listeners
  *
@@ -50,7 +45,6 @@ UI.reactions = {};
 var Events = Events || {};
 Events.system = {};
 Events.user = {};
-
 /**
  * Settings is a global namespace for store system default values
  *
@@ -58,7 +52,6 @@ Events.user = {};
 var Settings = Settings || {};
 Settings.defaults = {};
 Settings.user = {};
-
 /**
  * Workspace() creates a new Workspace
  *
@@ -75,15 +68,11 @@ function Workspace() {
     _this.input = _this.masterVolume.input;
     _this.output = _this.masterVolume.output;
     _this.output.connect(audioContext.destination);
-
     // variable to controlling active channel from events
     var activeChannel = null;
-
-
     // we build one masterRetreiver because if we have performace restrictions 
     // due to the heavy load of this class
     _this.masterRetriever = new SignalRetriever(_this.workflowController);
-
     // Workspace methods
     /**
      * addComposition() creates a new Composition and push it to the
@@ -123,7 +112,6 @@ function Workspace() {
     _this.getActiveChannel = function () {
         return _this.compositions[_this.activeComposition].activeChannel;
     };
-
     // local namespace to keep system triggers
     _this.events = {};
     _this.events.selectInstrument = function (value) {
@@ -150,31 +138,26 @@ function Workspace() {
     _this.events.startTranscription = function () {
         if (_this.workflowController.state === 'MIC_READY') {
             var activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
-//            if (Settings.user.ui.volumeMeter) {
-//                activeChannel.source.volumeMeter.stopDraw();
-//                activeChannel.source.volumeMeter.drawStatic();
-//            }
+            if (Settings.user.ui.volumeMeter) {
+                activeChannel.source.volumeMeter.stopDraw();
+                activeChannel.source.volumeMeter.drawStatic();
+            }
         }
         _this.masterRetriever.audioTranscriber.thread.start();
         _this.masterRetriever.audioRecorder.rec();
         _this.tempoController.metronome.start();
-
     };
     _this.events.stopTranscription = function () {
         // stop all system proccessing and get the trackSnapshots array
         var trackSnapshots = _this.masterRetriever.audioTranscriber.thread.stop();
-
         _this.workflowController.setState("LOADING");
-
         var composePromise = new Promise(function (resolve, reject) {
             // after stop correct and create note objects for all the snapshots
             _this.masterRetriever.audioTranscriber.composer.finalCut(trackSnapshots);
-
             // the performance time is related to the number of the snapshots
             var loadingTime = trackSnapshots.length / 100;
-
             if (_this.masterRetriever.audioTranscriber.composer.channelTrack.music.length > 0) {
-                resolve();
+                resolve(_this.masterRetriever.audioTranscriber.composer.channelTrack.music);
             } else {
                 var loop = setInterval(function () {
                     if (_this.masterRetriever.audioTranscriber.composer.channelTrack.music.length > 0) {
@@ -184,19 +167,15 @@ function Workspace() {
                 }, loadingTime);
             }
         });
-
         activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
 //FINDER
         composePromise.then(function (result) {
             // clear canvas and redraw composed notes
             if (_this.workflowController.state !== 'REFRESHED') {
                 _this.pianoroll.redrawNotesCorrected(result);
-
                 activeChannel.track.music = _this.masterRetriever.audioTranscriber.composer.channelTrack.music;
-
                 // load samples to buffer
                 activeChannel.loadSampler(activeChannel.track.music);
-
                 // promise to give time for loading
                 var samplerPromise = new Promise(function (resolve, reject) {
                     if (activeChannel.sampler.checker.checkIfLoaded())
@@ -211,11 +190,9 @@ function Workspace() {
                 });
                 samplerPromise.then(function () {
                     activeChannel.sampler.isLoaded = activeChannel.sampler.checker.setAsLoaded();
-
                     // make the rest action for playback after the sampler loaded
                     // load synth
                     activeChannel.loadSynth(activeChannel.track.music);
-
                     _this.masterVolume.device.gain.value = 1;
                     _this.workflowController.setState("PLAYBACK_READY");
                 });
@@ -223,14 +200,10 @@ function Workspace() {
         }, function (err) {
             console.log(err); // Error: "It broke"
         });
-
-
         // stop recording and retrieve recorded audio
         _this.masterRetriever.audioRecorder.stop();
-
         // stop metronome thread
         _this.tempoController.metronome.stop();
-
         // use of a promise because we need to wait until the buffer copied
         _this.waitForValue = function () {
             return new Promise(function (resolve, reject) {
@@ -250,10 +223,8 @@ function Workspace() {
                 console.log('Handle rejected promise (' + reason + ') here.');
             });
         };
-
         _this.synchronizer = new SystemDevices.adjusters.synchronizer();
         _this.visualThread = new SystemDevices.threads.visualThread(_this.synchronizer);
-
         // load recorder audio to buffer
         _this.waitForValue().then(function (result) {
             // use the result here
@@ -261,10 +232,8 @@ function Workspace() {
             activeChannel.track.audio = result;
             activeChannel.loadPlayer(activeChannel.track.audio);
         });
-
         Settings.states.TRANSCRIBING = false;
     };
-
     _this.events.startTesting = function () {
         _this.masterRetriever.audioTuner.thread.start();
     };
@@ -289,7 +258,6 @@ function Workspace() {
         Settings.states.PLAY = true;
         Settings.states.SAMPLERPLAY = true;
     };
-
     _this.events.stopPlayback = function () {
         var activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
         if (Settings.states.PLAY) {
@@ -317,7 +285,6 @@ function Workspace() {
         Settings.setters.setTempo(bpm);
         _this.tempoController.metronome.changeTempo(bpm);
     };
-
     _this.events.metronomeActivate = function (state) {
         Settings.defaults.global.metronomeActive = state;
         if (state)
@@ -325,13 +292,11 @@ function Workspace() {
         else
             _this.tempoController.metronome.output.disconnect();
     };
-
     _this.events.tap = function () {
         _this.tempoController.tap.update();
         var bpm = _this.tempoController.tap.getBPM();
         Settings.setters.setTempo(bpm);
     };
-
     _this.events.autoTempo = function (state) {
         Settings.defaults.global.autoRecognizeTempo = state;
         if (state) {
@@ -343,17 +308,13 @@ function Workspace() {
             document.getElementById("tap").disabled = false;
         }
     };
-
 // create composition
     _this.addComposition();
-
 // initialize listeners
     Events.system.addListeners(_this);
-
 // initialize pianoroll
     _this.pianoroll = new VisualDevices.initializers.pianorollInitializer();
     PIANOROLL = _this.pianoroll.draw();
-
 // initialize UI properties
     UI.initialize(_this);
 }
@@ -376,7 +337,6 @@ function Composition(index) {
     _this.bus = new AudioDevices.utilities.simpleGainControler();
     _this.busInput = _this.bus.input;
     _this.busOutput = _this.bus.output;
-
     // Composition methods
     /**
      * toggleChannel() change the active channel
@@ -429,11 +389,8 @@ function CompositionChannel(index, compositionIndex, channelType) {
     _this.type = channelType;
     _this.isActive = false;
     _this.track = new ChannelTrack();
-
-
     // representation of the channel
     _this.pianoroll = PIANOROLL;
-
     /**
      * createSourceNode() creates the channel device
      *
@@ -522,20 +479,16 @@ function ChannelTrack() {
  */
 function SignalRetriever(workflowController) {
     var _this = this;
-
     // create simple gin cotroller and just used as splitter
     _this.simpleGainControler = new AudioDevices.utilities.simpleGainControler();
     _this.input = _this.simpleGainControler.input;
-
     // create new audio recorder device and connect it
     _this.audioRecorder = new AudioDevices.retrievers.audioRecorder();
     _this.simpleGainControler.output.connect(_this.audioRecorder.input);
-
     // create new auto gain controler device
 //    _this.autoGainControler = new AudioDevices.utilities.autoGainControler();
     _this.volumeAnalyzer = new AudioDevices.utilities.volumeAnalyzer(workflowController);
     _this.simpleGainControler.output.connect(_this.volumeAnalyzer.input);
-
     // create new audio transcriber device and connect it
     _this.audioTranscriber = new AudioDevices.retrievers.audioTranscriber();
     _this.audioTuner = new AudioDevices.utilities.audioTuner();
@@ -556,7 +509,11 @@ AudioDevices.sources.mic = function (connectTo) {
         _this.device = audioContext.createMediaStreamSource(e);
         _this.output = _this.device;
         _this.output.connect(connectTo);
-
+        if (Settings.user.ui.volumeMeter) {
+            _this.volumeMeter = new VisualDevices.drawers.volumeDrawer();
+            _this.device.connect(_this.volumeMeter.input);
+            _this.volumeMeter.drawSignal();
+        }
     }
     if (!navigator.getUserMedia) {
         navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
@@ -572,7 +529,6 @@ AudioDevices.sources.mic = function (connectTo) {
         alert('getUserMedia not supported in this browser.');
     }
 };
-
 /**
  * filePlayer() creates a player device for reproduce audio file buffers
  *
@@ -580,10 +536,8 @@ AudioDevices.sources.mic = function (connectTo) {
 AudioDevices.sources.filePlayer = function (connectTo) {
     var _this = this;
     _this.file = THEFILE;
-
     _this.bufferFromFile = function (file, callback) {
         var reader = new FileReader();
-
         reader.onload = function (e) {
             audioContext.decodeAudioData(e.target.result, function (buffer) {
                 _this.device = audioContext.createBufferSource();
@@ -613,9 +567,7 @@ AudioDevices.sources.filePlayer = function (connectTo) {
     };
     _this.bufferFromFile(_this.file, function (buffer) {
     });
-
 };
-
 /**
  * bufferPlayer() creates a player device for reproduce 
  * recorded buffers / channel track audio
@@ -629,15 +581,12 @@ AudioDevices.sources.bufferPlayer = function (buffer, connectTo) {
     _this.output = _this.device;
     _this.output.connect(connectTo);
 };
-
-//FINDER
 /**
  * sampler() creates a sampler device for playback channel tracks
  *
  */
 AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
     var _this = this;
-
     _this.audioCtx = audioContext;
     _this.instrument = instrument;
     _this.notesArray = notesArray;
@@ -649,18 +598,15 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
     _this.samplesPath = null;
     _this.loadingTime = 0;
     init();
-
 // init sampler 
     function init() {
 
         // path intitialization	
         _this.samplesPath = "samples/";
-
         if (_this.instrument === "piano") {
             _this.samplesPath = _this.samplesPath + "piano";
         }
         _this.samplesPath = _this.samplesPath + "Samples/";
-
         // output initialization
         if (!outPut) {
             _this.output = audioContext.destination;
@@ -668,7 +614,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
 
         //master gain initialization
         _this.masterGain.connect(_this.output);
-
         // load samples
         loadSamples();
     }
@@ -676,16 +621,13 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
     function SampleLibrary(instrument) {
 
         var _this = this;
-
         var array = [];
         _this.length = 0;
         _this.instrument = instrument;
-
         _this.push = function (buffer, note, octave) {
             array.push(new Sample(buffer, note, octave));
             _this.length = array.length;
         };
-
         _this.doesExist = function (note, octave) {
 
             for (var i = 0; i < array.length; i++) {
@@ -695,7 +637,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
             }
             return null;
         };
-
         _this.doesExistIndex = function (note, octave) {
 
             for (var i = 0; i < array.length; i++) {
@@ -705,7 +646,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
             }
             return null;
         };
-
         _this.checkIfLoaded = function () {
 
             if (array.length < 1)
@@ -717,26 +657,20 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
             }
             return true;
         };
-
         _this.print = function () {
             console.log("samples lib contains ::::");
             for (var i = 0; i < array.length; i++)
                 console.log(i + " " + array[i].note + array[i].octave);
         };
-
         _this.getSampleByIndex = function (index) {
             return array[index].buffer;
         };
-
-
         function Sample(buffer, note, octave) {
 
             var _this = this;
-
             _this.buffer = buffer;
             _this.note = note;
             _this.octave = octave;
-
         }
 
 
@@ -787,7 +721,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
         var __this = this;
         __this.retries = 0;
         __this.interval = 50;
-
         __this.checkIfLoaded = function () {
             tmp = false;
             var tmp = _this.mySamples.checkIfLoaded();
@@ -810,7 +743,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
         }
         return true;
     };
-
     _this.stop = function () {
         _this.masterGain.gain.value = 0;
         _this.player.stop();
@@ -835,32 +767,24 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
     _this.getNotesArray = function () {
         return _this.notesArray;
     };
-
     _this.setMasterGain = function (val) {
         _this.masterGain.gain.value = val;
     };
 };
-
 /**
  * synth() creates a synthesizer device for playback channel tracks
  *
  */
 AudioDevices.sources.synth = function (notesArray, connectTo) {
     var _this = this;
-
     _this.oscillator = audioContext.createOscillator();
     _this.oscillator.type = 'sine';
     _this.gainNode = audioContext.createGain();
-
     _this.oscillator.connect(_this.gainNode);
     _this.output = _this.gainNode;
     _this.output.connect(connectTo);
-
     _this.synthArray = [];
-
     _this.clock = new WAAClock(audioContext);
-
-
     _this.synthNote = function (freq, dur, ts, ip) {
         this.frequency = freq;
         this.duration = dur;
@@ -875,7 +799,6 @@ AudioDevices.sources.synth = function (notesArray, connectTo) {
         }, ts + dur);
 //	_this.clock.timeStretch(audioCtx.currentTime, [playEvent], 0.5);
     };
-
     _this.start = function () {
         _this.clock.start();
         _this.oscillator.start();
@@ -891,7 +814,6 @@ AudioDevices.sources.synth = function (notesArray, connectTo) {
     }
 
 };
-
 /**
  * audioTuner() creates a metronome device with self clock that outputs sound
  * 
@@ -911,50 +833,46 @@ AudioDevices.utilities.audioTuner = function () {
  */
 AudioDevices.utilities.metronome = function () {
     var _this = this;
-
     _this.tempo = Settings.getters.getTempo();
-    _this.isPlaying = false;      // Are we currently playing?
-    _this.startTime;              // The start time of the entire sequence.
-    _this.current16thNote;        // What note is currently last scheduled?
-    _this.lookahead = 25.0;       // How frequently to call scheduling function 
+    _this.isPlaying = false; // Are we currently playing?
+    _this.startTime; // The start time of the entire sequence.
+    _this.current16thNote; // What note is currently last scheduled?
+    _this.lookahead = 25.0; // How frequently to call scheduling function 
     //(in milliseconds)
-    _this.scheduleAheadTime = 0.1;    // How far ahead to schedule audio (sec)
+    _this.scheduleAheadTime = 0.1; // How far ahead to schedule audio (sec)
     // This is calculated from lookahead, and overlaps 
     // with next interval (in case the timer is late)
-    _this.nextNoteTime = 0.0;     // when the next note is due.
-    _this.noteResolution = 2;     // 0 == 16th, 1 == 8th, 2 == quarter note
-    _this.noteLength = 0.05;      // length of "beep" (in seconds)
+    _this.nextNoteTime = 0.0; // when the next note is due.
+    _this.noteResolution = 2; // 0 == 16th, 1 == 8th, 2 == quarter note
+    _this.noteLength = 0.05; // length of "beep" (in seconds)
     _this.last16thNoteDrawn = -1; // the last "box" we drew on the screen
-    _this.notesInQueue = [];      // the notes that have been put into the web audio,
+    _this.notesInQueue = []; // the notes that have been put into the web audio,
     // and may or may not have played yet. {note, time}
-    _this.timerWorker = null;     // The Web Worker used to fire timer messages
+    _this.timerWorker = null; // The Web Worker used to fire timer messages
     _this.device = audioContext.createOscillator();
     _this.gain = new AudioDevices.utilities.simpleGainControler();
     _this.gain.value = 0.9;
     _this.output = _this.gain.output;
     if (Settings.defaults.global.metronomeActive)
         _this.output.connect(audioContext.destination);
-
     _this.changeTempo = function (tempo) {
         _this.tempo = tempo;
     }
 
     _this.nextNote = function () {
         // Advance current note and time by a 16th note...
-        var secondsPerBeat = 60.0 / Settings.getters.getTempo();    // Notice this picks up the CURRENT 
+        var secondsPerBeat = 60.0 / Settings.getters.getTempo(); // Notice this picks up the CURRENT 
         // tempo value to calculate beat length.
-        _this.nextNoteTime += 0.25 * secondsPerBeat;    // Add beat length to last beat time
+        _this.nextNoteTime += 0.25 * secondsPerBeat; // Add beat length to last beat time
 
-        _this.current16thNote++;    // Advance the beat number, wrap to zero
+        _this.current16thNote++; // Advance the beat number, wrap to zero
         if (_this.current16thNote == 16) {
             _this.current16thNote = 0;
         }
     };
-
     _this.scheduleNote = function (beatNumber, time) {
         // push the note on the queue, even if we're not playing.
         _this.notesInQueue.push({note: beatNumber, time: time});
-
         if ((_this.noteResolution == 1) && (beatNumber % 2))
             return; // we're not playing non-8th 16th notes
         if ((_this.noteResolution == 2) && (beatNumber % 4))
@@ -962,20 +880,16 @@ AudioDevices.utilities.metronome = function () {
 
         _this.device = audioContext.createOscillator();
         _this.device.connect(_this.gain.input);
-
         if (beatNumber % 16 === 0)    // beat 0 == high pitch
             _this.device.frequency.value = 880.0;
         else if (beatNumber % 4 === 0)    // quarter notes = medium pitch
             _this.device.frequency.value = 440.0;
         else                        // other 16th notes = low pitch
             _this.device.frequency.value = 220.0;
-
-
         _this.device.start(time);
         Settings.defaults.global.beatTimestamp = time;
         _this.device.stop(time + _this.noteLength);
     };
-
     _this.scheduler = function () {
         // while there are notes that will need to play before the next interval, 
         // schedule them and advance the pointer.
@@ -984,13 +898,11 @@ AudioDevices.utilities.metronome = function () {
             _this.nextNote();
         }
     };
-
     _this.start = function () {
         _this.current16thNote = 0;
         _this.nextNoteTime = audioContext.currentTime;
         _this.timerWorker.postMessage("start");
     };
-
     _this.stop = function () {
         _this.timerWorker.postMessage("stop");
     };
@@ -1003,11 +915,8 @@ AudioDevices.utilities.metronome = function () {
         };
         _this.timerWorker.postMessage({"interval": _this.lookahead});
     };
-
     _this.init();
-
 };
-
 /**
  * simpleGainControler() creates a simple volume device - most used as the channel
  * device replacing a splitter device
@@ -1022,14 +931,12 @@ AudioDevices.utilities.simpleGainControler = function (gainValue) {
     _this.output = _this.input;
     // TODO: system creates a gain node
 };
-
 /**
  * autoGainControler() creates the auto gain controler device
  *
  */
 AudioDevices.utilities.autoGainControler = function (workflowController) {
     var _this = this;
-
     _this.preGainNode = audioContext.createGain();
     _this.limiterNode = audioContext.createDynamicsCompressor();
     _this.limiterNode.threshold.value = 0.0; // this is the pitfall, leave some headroom
@@ -1050,7 +957,6 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
     };
     // default maximize the signal
     _this.maximize(Settings.defaults.global.maximize);
-
     function controller() {
         var __this = this;
         __this.topCounter = 0;
@@ -1061,7 +967,6 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
         __this.averageBottomdb = 0;
         __this.volumeStabilized = false;
         __this.peakDetected = false;
-
         // check volume level to either volume down or show low level message
         __this.peakDetect = function (db) {
             if (db > -5) {
@@ -1070,7 +975,6 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
             checkTop(db);
             if (!__this.volumeStabilized || !__this.peakDetected)
                 checkBottom(db);
-
             // detect if 5 values in row are higher than 0 db
             function checkTop(db) {
                 if (db > 0 && __this.prevTopdb > 0) {
@@ -1094,7 +998,6 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
                 if (db < -25 && __this.prevBottomdb < -25) {
                     __this.sumBottomdb += db;
                     __this.bottomCounter++;
-
                     if (__this.bottomCounter === 1000) {
                         __this.averageBottomdb = __this.sumBottomdb / __this.bottomCounter;
                         if (__this.averageBottomdb < -25) {
@@ -1106,7 +1009,6 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
                             // alert user for low volume level
                             if (Settings.states.TRANSCRIBING)
                                 workflowController.printUserMessage("LOW_LEVEL");
-
                             __this.sumBottomdb = 0;
                             __this.bottomCounter = 0;
                             return -1;
@@ -1123,14 +1025,12 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
     }
     _this.controller = new controller();
 };
-
 /**
  * volumeAnalyzer() creates a volume meter
  *
  */
 AudioDevices.utilities.volumeAnalyzer = function (workflowController) {
     var _this = this;
-
     _this.audioCtx = audioContext;
     _this.autoGainControler = new AudioDevices.utilities.autoGainControler(workflowController);
     _this.analyzer = _this.audioCtx.createScriptProcessor(1024, 1, 1);
@@ -1138,40 +1038,32 @@ AudioDevices.utilities.volumeAnalyzer = function (workflowController) {
     _this.input = _this.autoGainControler.input;
     _this.autoGainControler.output.connect(_this.analyzer);
     _this.output = _this.autoGainControler.output;
-
     // the script processor bug
     _this.proccessOutGain = _this.audioCtx.createGain();
     _this.analyzer.connect(_this.proccessOutGain);
     _this.proccessOutGain.gain.value = 0;
     _this.proccessOutGain.connect(_this.audioCtx.destination);
-
     var ctx = _this.canvas.getContext('2d');
     var w = _this.canvas.width;
     var h = _this.canvas.height;
-
     ctx.fillStyle = '#555';
     ctx.fillRect(0, 0, w, h);
-
     _this.autoGainControler.output.connect(_this.analyzer);
     _this.analyzer.connect(_this.audioCtx.destination);
-
     _this.analyzer.onaudioprocess = function (e) {
         var out = e.outputBuffer.getChannelData(0);
         var int = e.inputBuffer.getChannelData(0);
         var max = 0;
-
         for (var i = 0; i < int.length; i++) {
-            out[i] = 0;//prevent feedback and we only need the input data
+            out[i] = 0; //prevent feedback and we only need the input data
             max = int[i] > max ? int[i] : max;
         }
         // convert from magnitude to decibel
         var db = 20 * Math.log(Math.max(max, Math.pow(10, -72 / 20))) / Math.LN10;
         db = Math.round(db);
-
         // get current db and controll maximize
 //        if(autoGainControl)
         _this.autoGainControler.controller.peakDetect(db);
-
         var grad = ctx.createLinearGradient(w / 10, h * 0.07, w / 10, h);
         grad.addColorStop(0, 'red');
         grad.addColorStop(0.01, 'DarkOrange');
@@ -1187,12 +1079,10 @@ AudioDevices.utilities.volumeAnalyzer = function (workflowController) {
         ctx.textAlign = "center";
         ctx.fillText(Math.round(db * 100) / 100 + ' dB', w / 2, h - h * 0.025);
     };
-
     _this.gainUpdate = function (value) {
         _this.autoGainControler.maximize(value);
     };
 };
-
 /**
  * dynamicCompressor() creates a basic dynamic compressor device
  *
@@ -1211,7 +1101,6 @@ AudioDevices.utilities.dynamicCompressor = function () {
         _this.device.release.value = preset.release;
     }
 };
-
 /**
  * equalizer() creates an equalizer device.
  * 
@@ -1278,7 +1167,6 @@ AudioDevices.utilities.equalizer = function () {
             _this.setBandGains(preset.gains);
     };
 };
-
 /**
  * audioRecorder() creates the audio recorder device
  *
@@ -1288,7 +1176,6 @@ AudioDevices.retrievers.audioRecorder = function () {
     _this.finalRecordedBuffer = null;
     _this.bufferLen = Settings.defaults.global.recorderBufferLength;
     _this.recorderCore = audioContext.createScriptProcessor(_this.bufferLen, 2, 2);
-
     /**       vazw ena boolean isRecording pou 8a to xreiastw gia eswterikes diadikasies kai na elegxw
      *        pote krataw ta input buffers . 
      */
@@ -1301,7 +1188,6 @@ AudioDevices.retrievers.audioRecorder = function () {
             });
         }
     };
-
     /**     pairnei to finalRecordedBuffer kai to metatrepei se audio buffer
      *      
      *      @return {AudioBuffer} finalAudioBuffer
@@ -1322,7 +1208,6 @@ AudioDevices.retrievers.audioRecorder = function () {
             _this.finalRecordedBuffer.getChannelData(1).set(returnedBuffer[1]);
         }
     };
-
     // arxikopoihsh tou recorder_Worker , stelnei command init kai to sample rate     
     _this.initRecorder = function () {
         _this.recorderWorker.postMessage({
@@ -1330,7 +1215,6 @@ AudioDevices.retrievers.audioRecorder = function () {
             sampleRate: audioContext.sampleRate
         });
     };
-
     _this.rec = function () {
         _this.isRecording = true;
     };
@@ -1340,17 +1224,13 @@ AudioDevices.retrievers.audioRecorder = function () {
             cmd: 'editBuffers'
         });
     };
-
     // initialize recorder
     _this.initRecorder();
-
     _this.input = _this.recorderCore;
     _this.output = _this.input;
-
     // must connect with destination for scriptprocessor to play
     _this.output.connect(audioContext.destination);
 };
-
 /**
  * audioTranscriber() construct the audio transctiber
  * for retrieve audio signal from the routing graph
@@ -1376,7 +1256,6 @@ AudioDevices.retrievers.audioTranscriber = function () {
     };
     _this.output = _this.input;
 };
-
 /**
  * systemThread() executed x times per second and trigger system methods
  * 
@@ -1395,13 +1274,10 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
     _this.trackSnapshots = [];
     _this.composedTrack = [];
     _this.visualThread = new SystemDevices.threads.visualThread(synchronizer);
-
     // setInterval workflow variables
     var fpsInterval, startTime, now, then, elapsed;
-
     _this.thread = function (trackSnapshots) {
         var __this = this;
-
         __this.currentTimestamp = null;
         __this.xCanvasPosition = 0;
         __this.currentCycle = 0;
@@ -1409,6 +1285,8 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
         __this.pitchHistogram = [];
         __this.pitch = null;
         __this.isOnset = null;
+        __this.checkForOnset = true;
+        __this.onsetHoldCounter = 0;
         __this.snapshotAmp = null;
         __this.sampleRate = null;
         __this.tempo = beatTracker.tempo;
@@ -1418,7 +1296,6 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
         __this.threadWorkflow = function () {
             // set system starting time
             synchronizer.countSystemDelay.startingTime = performance.now();
-
             // demo is one minute
 //            if (__this.currentTimestamp >= 60) {
 //                TONEROLLDEMO.workflowController.setState('DEMO_ENDED');
@@ -1430,7 +1307,6 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
 
             // set timestamp for current cycle NOW
             __this.currentTimestamp = synchronizer.setGlobalTime();
-
             if (Settings.user.ui.metronomeFlash) {
                 // trigger an event in on every metronome beat
                 if (Settings.defaults.global.beatTimestamp !== __this.tempBeatCounter) {
@@ -1440,21 +1316,32 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
             }
 
             __this.xCanvasPosition = _this.visualThread.xCanvasPosition;
-
             // cycle counter - we substract 1 because the cycle wont to start from 0
             __this.currentCycle = synchronizer.setSystemCycles() - 1;
-
             // intoduce additional info about current autocorrelation
             __this.pitchCalibration = pitchDetector.updatePitch();
             __this.pitchHistogram.push(__this.pitchCalibration);
+            // real time pitch correction based on correlations
 //            __this.pitch = corrector.simplePitchCorrection(__this.pitchHistogram, __this.currentCycle).bestCorrelation;
             __this.pitch = __this.pitchCalibration.bestCorrelation;
-
-            __this.isOnset = onsetDetector.updateOnsets(__this.currentCycle, __this.pitch);
+//ONSET FINDER
+            // add restriction to check after noteMinSnapshots again
+            if (__this.checkForOnset) {
+                __this.isOnset = onsetDetector.updateOnsets(__this.currentCycle, __this.pitch);
+                if (__this.isOnset) {
+                    __this.checkForOnset = false;
+                }
+            } else {
+                if (__this.onsetHoldCounter === Settings.defaults.global.noteMinSnapshots.dynamic - 1) {
+                    __this.checkForOnset = true;
+                    __this.onsetHoldCounter = 0;
+                }
+                __this.onsetHoldCounter++;
+                __this.isOnset = false;
+            }
 
             // get the processed signal amp - DEPRECATED
             __this.snapshotAmp = onsetDetector.workflow.normalized;
-
             // calculate sample rate per second
             __this.sampleRate = synchronizer.countOutputSampleRate();
             if (__this.isOnset)
@@ -1464,16 +1351,16 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
                     console.log('ONSET');
                     // calculate tempo - if current cycle is offset push cycle number for calculation
                     __this.tempo = beatTracker.calculateBPM(__this.currentCycle, __this.sampleRate);
-
                     // pass tempo to the visual thread
                     Settings.setters.setTempo(__this.tempo);
                 }
             }
-
+            
+            __this.xCanvasPosition = synchronizer.synchPos(__this.xCanvasPosition, synchronizer.pspc);
+            
             __this.currentSnapshot = SystemDevices.processors.snapshotCreator(__this.pitch, __this.isOnset, __this.tempo, __this.currentTimestamp, __this.xCanvasPosition, __this.currentCycle, __this.snapshotAmp, __this.pitchCalibration); // TODO : updateOnets() must return current cycle boolean for onsets
 
             trackSnapshots.push(__this.currentSnapshot);
-
             // actions to do if autocorrection (AKA preprocessing) is enabled
             if (_this.autocorrection) {
                 trackSnapshots = corrector.processSnapshots(trackSnapshots);
@@ -1486,12 +1373,9 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
 
             // set system proccess end time
             synchronizer.countSystemDelay.proccessEndTime = performance.now();
-
             if (trackSnapshots[trackSnapshots.length - __this.snapshotsNeedForCorrrection] instanceof NoteSnapshot)
                 _this.visualThread.snapshotBuffer.pushSnapshot(trackSnapshots[trackSnapshots.length - __this.snapshotsNeedForCorrrection]);
-
             _this.trackSnapshots = trackSnapshots;
-
             // composedTrack is the array with notes for the composition channel
             _this.composedTrack = composer.channelTrack.music;
         }
@@ -1517,11 +1401,9 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
         // start sample playback if it is sample
         if (ACTIVECHANNEL.type === "userSample")
             ACTIVECHANNEL.source.device.start(0);
-
         // start threads
         _this.thread = new _this.thread(_this.trackSnapshots);
         _this.visualThread.startLoop();
-
 //        set the global state to transcribing
         Settings.states.TRANSCRIBING = true;
     };
@@ -1542,8 +1424,6 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
         return _this.trackSnapshots;
     };
 };
-
-
 /**
  * visualThread() executed x times per second and trigger visual methods
  *
@@ -1560,7 +1440,6 @@ SystemDevices.threads.visualThread = function (synchronizer) {
     _this.pianorollDrawer = new VisualDevices.drawers.pianorollDrawer();
     _this.momentaryOutput = new VisualDevices.indicators.momentaryOutput();
     _this.overlayDrawer = new VisualDevices.drawers.overlayDrawer();
-
     // request animation frame workflow variables
     var requestId = 0;
     var fpsInterval, startTime, now, then, elapsed;
@@ -1581,11 +1460,8 @@ SystemDevices.threads.visualThread = function (synchronizer) {
             // Get ready for next frame by setting then=now, but also adjust for your
             // specified fpsInterval not being a multiple of RAF's interval
             then = now - (elapsed % fpsInterval);
-
             _this.tempo = Settings.getters.getTempo();
-
             synchronizer.countSystemDelay.drawStartTime = _this.pianorollDrawer.renderSnapshots(_this.snapshotBuffer.readBuffer(), synchronizer.pspc, _this.cursorMove);
-
             // visualize audio input background
 //                try {
 //                    _this.signalDrawer.renderSignal(_this.xCanvasPosition, SIMPLEANALYSER.getInput());
@@ -1609,12 +1485,11 @@ SystemDevices.threads.visualThread = function (synchronizer) {
 
             synchronizer.setSpeed(_this.tempo);
             synchronizer.countSystemDelay.calculateOffset();
-
             // TODO: mix the following together in synscronizer device
             // value to allow cursor to move based on synchronization - this will affect next cycle
             _this.cursorMove = synchronizer.speedLimiter();
             _this.xCanvasPosition = synchronizer.xCanvasPosition;
-            _this.xCanvasPosition = synchronizer.synchPos(_this.xCanvasPosition, synchronizer.pspc);
+            
         }
     };
     _this.startLoop = function () {
@@ -1630,7 +1505,6 @@ SystemDevices.threads.visualThread = function (synchronizer) {
         requestId = 0;
     };
 };
-
 /**
  * tunerThread() executed x times per second and trigger tuning methods
  * 
@@ -1683,7 +1557,6 @@ SystemDevices.threads.tunerThread = function (pitchDetector, indicator) {
         Settings.states.TESTING = false;
     };
 };
-
 /**
  * preseter() adjust the right preset for each system function based
  * on the kind of instrument
@@ -1795,7 +1668,6 @@ SystemDevices.adjusters.preseter = function (compressor, equalizer) {
         equalizer.setPreset(filterSettings);
     };
 };
-
 /**
  * corrector() correct snapshots based on the
  * track array - currently characterize snapshots with onsets and offsets
@@ -1920,106 +1792,242 @@ SystemDevices.adjusters.corrector = function () {
 SystemDevices.adjusters.composer = function () {
     var _this = this;
     _this.channelTrack = new ChannelTrack();
-    _this.processorWorker = new Worker('processor.js');
-    _this.processorWorker.onmessage = function (event) {
-        _this.createNotesFromGroups(JSON.parse(event.data));
-    };
-    _this.processorWorker.onerror = function (event) {
-        throw event;
-    };
+
     _this.finalCut = function (snapshots) {
 
+        var minRow = Settings.defaults.global.noteMinSnapshots.dynamic;
         var snapshotsGroups = createSnapshotsGroups(snapshots);
-        _this.processorWorker.postMessage({groups: JSON.stringify(snapshotsGroups), snapshots: JSON.stringify(snapshots), minRow: Settings.defaults.global.noteMinSnapshots.dynamic});
+        var groupsOnseted = checkTempOnsets(snapshotsGroups) || snapshotsGroups;
+        var groupsOffseted = checkTempOffsets(groupsOnseted) || groupsOnseted;
+        var groupsSticked = stickBrokens(groupsOffseted) || groupsOffseted;
+        var groupsFilled = fillGroups(groupsSticked) || groupsSticked;
+        var groupsCleaned = cleanUpGroups(groupsFilled) || groupsFilled;
+        _this.createNotesFromGroups(groupsCleaned);
+
         function createSnapshotsGroups(snapshots) {
+
+            // add silence at the end
             snapshots.push(new SilenceSnapshot(snapshots.length - 1).pointer);
-            var snasphotsGroups = [];
-            var tempNote = null;
+            var groups = [];
+            var tempSnap = null;
+            var lookFurther = 0;
             var groupStarted = false;
-            var silenceStarted = false;
-            // the minimum number of same note snapshots in row to make group - relative value to thread rate
-//            var minRow = parseInt(Settings.getters.getSystemThreadRate() / 20);
-// FINDER
-            var minRow = Settings.defaults.global.noteMinSnapshots.dynamic;
-            //console.log(Settings.defaults.global.noteMinSnapshots.dynamic);
-            var count = 0;
-            var minus = 0;
             // process the snapshots array
-            for (var i = 0; i < snapshots.length; ++i) {
-
-//
-                // check if current snapshot is notesnapshot and no group has started
-                if (snapshots[i] instanceof NoteSnapshot && !groupStarted) {
-                    silenceStarted = false;
-//                    console.log("logika ta minRow prota snapshots -> snapshots[i] instanceof NoteSnapshot && !groupStarted ------ check if current snapshot is notesnapshot and no group has started");
-                    // check if we have a group - more than n same notes in row
-                    if ((snapshots[i].note === tempNote && minRow === count) || snapshots[i].isOnset) {
-                        minus = i - count;
-                        // create new group
-                        snasphotsGroups.push(new snapshotsGroup(snapshots[minus]));
-                        // add current to group
-//                        var lastSnapPointer = snasphotsGroups[snasphotsGroups.length - 1].snapshots[snasphotsGroups[snasphotsGroups.length - 1].snapshots.length - 1].pointer
-//                        if (lastSnapPointer < snapshots[minus].pointer)
-//                            snasphotsGroups[snasphotsGroups.length - 1].addSnapshot(snapshots[minus]);
-//                            console.log(snapshots[minus].pointer);
-
-                        tempNote = null;
-                        groupStarted = true;
-                        minRow = Settings.defaults.global.noteMinSnapshots.dynamic;
-                    } else if (snapshots[i].note === tempNote && minRow > count) {
-                        count++;
-                    } else {
-                        tempNote = snapshots[i].note;
-                    }
-
-                    // check if current snapshot is notesnapshot and a group has started
-                } else if (snapshots[i] instanceof NoteSnapshot && groupStarted) {
-//                    console.log("kathe nota META apo ena ONSET -> snapshots[i] instanceof NoteSnapshot && groupStarted ------- check if current snapshot is notesnapshot and a group has started");
-                    var snapshotCounted = count;
-                    count = 0;
-                    if (snapshots[i - snapshotCounted].note === snasphotsGroups[snasphotsGroups.length - 1].note && !snapshots[i - snapshotCounted].isOnset) {
-//                        console.log('--just fill with notes');
-                        snasphotsGroups[snasphotsGroups.length - 1].addSnapshot(snapshots[i - snapshotCounted]);
-                    }
-                    // cut same note if a new onset has arrived
-                    else if (snapshots[i - snapshotCounted].note === snasphotsGroups[snasphotsGroups.length - 1].note && snapshots[i - snapshotCounted].isOnset) { // && snasphotsGroups[snasphotsGroups.length - 1].snapshots.length > 2  ?
-//                        console.log('--cut same note if a new onset has arrived');
-                        snapshots[i - snapshotCounted - 1] = new SilenceSnapshot(snapshots[i - snapshotCounted - 1].pointer);
-                        groupStarted = false;
-                    }
-                    else {
-                        groupStarted = false;
-                    }
-                    // check if there are two silences at row
-                } else if (snapshots[i] instanceof SilenceSnapshot) {
-                    silenceStarted = true;
-                    if (silenceStarted) {
-                        groupStarted = false;
-                    }
+            for (var i = 0; i < snapshots.length - 1; ++i) {
+                tempSnap = snapshots[i];
+                // check if current snapshot is onset or two same snapshot notes in row exists
+                if (!groupStarted && (tempSnap.isOnset || ((tempSnap.note === snapshots[i + 1].note) && tempSnap instanceof NoteSnapshot))) {
+                    // create new group
+                    groups.push(new snapshotsGroup(tempSnap));
+                    groupStarted = true;
+                } else if (groupStarted && (tempSnap.note === snapshots[i - 1].note)) {
+                    // fill the group with notes
+                    groups[groups.length - 1].addSnapshot(tempSnap);
+                } else if (groupStarted && (tempSnap.note !== snapshots[i - 1 - lookFurther].note)) {
+//                    if (snapshots[i - 1] instanceof ErrorSnapshot) {
+//                        lookFurther++;
+//                    } else {
+//                        lookFurther = 0;
+                    groupStarted = false;
+//                    }
                 }
+                ////                        snapshots[i - snapshotCounted - 1] = new SilenceSnapshot(snapshots[i - snapshotCounted - 1].pointer);                                           
             }
-            return snasphotsGroups;
+            return groups;
         }
+
         function snapshotsGroup(noteStart) {
             var _this = this;
             _this.snapshots = [];
             _this.note = noteStart.note;
             _this.tempOnset = noteStart;
             _this.tempOffset = null;
+            _this.setOffset = function () {
+                try {
+                    _this.tempOffset.isOffset = false;
+                } catch (e) {
+                }
+                _this.tempOffset = _this.snapshots[_this.snapshots.length - 1];
+                _this.snapshots[_this.snapshots.length - 1].isOffset = true;
+//                try {
+//                    _this.snapshots[_this.snapshots.length - 2].isOffset = false;
+//                } catch (e) {
+//                }
+            };
             _this.addSnapshot = function (snapshot) {
                 _this.snapshots.push(snapshot);
-                _this.tempOffset = _this.snapshots[_this.snapshots.length - 1];
+                _this.setOffset(_this.snapshots[_this.snapshots.length - 1]);
             }
             _this.addSnapshot(noteStart);
-            _this.setOffset = function () {
-                _this.tempOffset = _this.snapshots[_this.snapshots.length - 1];
-            };
+
+        }
+
+        function cleanUpGroups(snapshotsGroups) {
+            for (var i = 0; i < snapshotsGroups.length; i++) {
+                if (snapshotsGroups[i].note === 0) {
+                    snapshotsGroups.splice(i, 1);
+                    continue;
+                }
+                if (snapshotsGroups[i].tempOffset.pointer - snapshotsGroups[i].tempOnset.pointer < minRow) {
+                    snapshotsGroups.splice(i, 1);
+                    continue;
+                }
+            }
+            return snapshotsGroups;
+        }
+
+        function stickBrokens(snapshotsGroups) {
+            for (var i = 0; i < snapshotsGroups.length; i++) {
+                var onsetFounded = null;
+                if (snapshotsGroups[i].tempOffset.pointer - snapshotsGroups[i].tempOnset.pointer < minRow) {
+                    // stick to group if has an onset in it
+                    for (var j = 0; j < snapshotsGroups[i].snapshots.length - 1; j++) {
+                        // check if current or 1 pos round it are onsets
+                        try {
+                            if (snapshotsGroups[i].snapshots[j].isOnset) {
+                                onsetFounded = snapshotsGroups[i].snapshots[j];
+                                changeOnset(snapshotsGroups, onsetFounded);
+                            } else if (snapshots[snapshotsGroups[i].snapshots[j].pointer - 1].isOnset) {
+                                onsetFounded = snapshots[snapshotsGroups[i].snapshots[j].pointer - 1];
+                                changeOnset(snapshotsGroups, onsetFounded);
+                            } else if (snapshots[snapshotsGroups[i].snapshots[j].pointer + 1].isOnset) {
+                                onsetFounded = snapshots[snapshotsGroups[i].snapshots[j].pointer + 1];
+                                changeOnset(snapshotsGroups, onsetFounded);
+                            }
+                        } catch (err) {
+                        }
+                    }
+                }
+            }
+            return snapshotsGroups;
+        }
+        function changeOnset(snapshotsGroups, onsetFounded) {
+            if (onsetFounded.note === (snapshotsGroups[i + 1].tempOnset.note || snapshotsGroups[i + 1].snapshots[1].note)) {
+                snapshots[snapshotsGroups[i + 1].tempOnset.pointer].isOnset = false;
+                snapshotsGroups[i + 1].tempOnset = onsetFounded;
+                snapshots[snapshotsGroups[i + 1].tempOnset.pointer].isOnset = true;
+                snapshotsGroups.splice(i, 1);
+            }
+        }
+
+        function fillGroups(snapshotsGroups) {
+            for (var i = 0; i < snapshotsGroups.length; i++) {
+                var count = snapshotsGroups[i].tempOffset.pointer - snapshotsGroups[i].tempOnset.pointer;
+                var tmpPointer = snapshotsGroups[i].tempOnset.pointer + 1;
+                // fill in the snapshots array to fill again with all the missing values including
+                for (var j = 0; j <= count; j++) {
+                    snapshotsGroups[i].snapshots.push(snapshots[tmpPointer]);
+                    tmpPointer++;
+                }
+            }
+            return snapshotsGroups;
+        }
+
+        function checkTempOnsets(snapshotsGroups) {
+            var groups = snapshotsGroups;
+
+            // process groups array
+            for (var i = 0; i < groups.length; i++) {
+
+                var tempSnap = groups[i].tempOnset;
+
+                // this is only for the first snapshot group - sometimes
+                if (tempSnap.pointer > 2) {
+
+//            var prev = [];
+                    // check while two previous amps going downwards
+                    for (var j = tempSnap.pointer; j > tempSnap.pointer - 2; j--) {
+//                for (var k = 1; k <= minRow; k++) {
+//                    prev.push(snapshots[j - k].amp);
+//                }
+                        var prev = snapshots[j - 1].amp;
+                        var prev2 = snapshots[j - 2].amp;
+                        if (prev < prev2) {
+                            tempSnap = snapshots[j];
+                            if (groups[i].tempOnset !== snapshots[j]) {
+                                snapshots[groups[i].tempOnset.pointer].isOnset = false;
+                                groups[i].tempOnset = snapshots[j];
+                                snapshots[j].isOnset = true;
+
+                                // set the onset attribute to avoid cut the group later due to minRow
+//                                groups[i].tempOnset.isOnset = true;
+//                        console.log('============' + snapshots[j].pointer + '=============');
+//                        groups[i].snapshots.unshift(snapshots[j]);            // give dublicates
+                            }
+                            break;
+                        }
+//                else {
+//                    groups[i].snapshots.unshift(snapshots[j]);                // give dublicates
+//                }
+                    }
+                } else {
+                    // this is only for the first snapshot group - sometimes
+                    groups[i].tempOnset = snapshots[0];
+                }
+
+                var prevOffsetPointer = null;
+                if (i > 0)                                                              // condition for the first group
+                    prevOffsetPointer = groups[i - 1].tempOffset.pointer;
+                else
+                    prevOffsetPointer = 0;
+
+                var curOnsetPointer = groups[i].tempOnset.pointer;
+
+                // check if there is an onset until the previous offset
+                for (var k = curOnsetPointer; k > prevOffsetPointer; k--) {
+                    if (snapshots[k].isOnset) {
+                        snapshots[groups[i].tempOnset.pointer].isOnset = false;
+                        groups[i].tempOnset = snapshots[k];
+                        snapshots[k].isOnset = true;
+                        break;
+                    }
+                }
+
+            }
+
+            // check if onsets in between
+//                var onsetsCount = 0;
+//                var onsetsArray = [];
+//                var counter = 0;
+//                console.log("-----size----" + groups[i].snapshots.length);
+//                for (var k = 0; k < groups[i].snapshots.length; k = k + 2) {
+//                    if (groups[i].snapshots[k].isOnset) {
+//                        onsetsCount++;
+//                        console.log("---------" + groups[i].snapshots[k].pointer + "-" + groups[i].tempOnset.pointer);
+//                        console.log("---------" + k);
+//                        onsetsArray.push(2);
+////                        k += 1;
+//                    }
+//                }
+//                if (onsetsCount > 1) {
+//                    // slice a group when more than one onset are on it 
+//                    var newGroups = sliceSnapshotsGroup(groups[i], onsetsArray);
+//                    groups = addNewGroups(groups, newGroups, i);
+//                }
+
+            return groups;
+        }
+
+        function checkTempOffsets(snapshotsGroups) {
+            var groups = snapshotsGroups;
+            for (var i = 0; i < groups.length - 1; i++) {
+                var tempOffset = groups[i].tempOffset;
+                var nextOnset = groups[i + 1].tempOnset;
+                for (var j = tempOffset.pointer; j < nextOnset.pointer; j++) {
+                    if ((snapshots[j + 1].amp < 10) || (j + 1 === nextOnset.pointer))
+                        // condition for checking amp + condition if found next onset before determine offset
+                        if ((snapshots[j - 1].amp > snapshots[j].amp)) {
+                            groups[i].addSnapshot(snapshots[j]);
+                            break;
+                        }
+                }
+            }
+            return groups;
         }
     }
-
-    _this.createNotes = function (onsetPointer, OffsetPointer, snapshots) {
+    _this.createNotes = function (onsetPointer, offsetPointer, snapshots) {
         //create the whole single note from the snapshots
-        var note = new SingleNote(onsetPointer, OffsetPointer, snapshots);
+        var note = new SingleNote(onsetPointer, offsetPointer, snapshots);
         //console.log(note);
         _this.channelTrack.music.push(note);
         return _this.channelTrack;
@@ -2034,7 +2042,9 @@ SystemDevices.adjusters.composer = function () {
             _this.createNotes(groups[i].tempOnset.pointer, groups[i].tempOffset.pointer, groups[i].snapshots);
         }
     };
+
 };
+
 /**
  * synchronizer() adjust the time and space relevance
  *
@@ -2217,6 +2227,8 @@ SystemDevices.processors.snapshotCreator = function (pitch, isOnset, tempo, curr
         }
     }
 //    console.log(snapshot.pointer + " " + snapshot.constructor.name + " " + snapshot.amp + " " + snapshot.isOnset + " " + snapshot.note + " " + " " + snapshot.pitch);
+    console.log(snapshot.pointer + ' ' + snapshot.xCanvasPosition);
+//    console.log(snapshot);
     return snapshot;
 };
 /**
@@ -2408,6 +2420,7 @@ SystemDevices.detectors.eventDetector = function () {
     _this.workflow = {unNormalized: [], normalized: [], maxNormValue: 0};
     _this.startNormalize = {condition: false};
     _this.onsets = [];
+    _this.currentCycle = null;
     _this.currentCycleIsOnset = false;
     _this.processedSignal = [];
     _this.input = _this.onsetCompressorNode;
@@ -2423,7 +2436,7 @@ SystemDevices.detectors.eventDetector = function () {
         _this.workflow.normalized = processedSignal.normalized;
         _this.workflow.maxNormValue = processedSignal.maxNormValue;
         try {
-            _this.updateOnsetPickWorker.postMessage({normalized: _this.workflow.normalized, minNoteDuration: Settings.defaults.global.noteMinSnapshots.dynamic});
+            _this.updateOnsetPickWorker.postMessage({normalized: _this.workflow.normalized, minNoteDuration: Settings.defaults.global.noteMinSnapshots.dynamic, currentCycle: _this.currentCycle});
         } catch (err) {
         }
     };
@@ -2444,6 +2457,7 @@ SystemDevices.detectors.eventDetector = function () {
      *
      */
     _this.updateOnsets = function (currentCycle, pitch) {
+        _this.currentCycle = currentCycle;
         var buffer = _this.buffer;
         _this.onsetAnalyserNode.getFloatTimeDomainData(buffer);
         // normalize the audio input frame
@@ -2461,7 +2475,7 @@ SystemDevices.detectors.eventDetector = function () {
 
         // fill up an onset array locally just in case
         if (_this.currentCycleIsOnset)
-            _this.onsets.push(currentCycle);
+            _this.onsets.push(_this.currentCycle);
         return _this.currentCycleIsOnset;
     };
 };
@@ -3212,6 +3226,153 @@ VisualDevices.drawers.overlayDrawer = function () {
     };
 };
 /**
+ * volumeDrawer() draw on a curved line represent the input audio signal
+ *
+ */
+VisualDevices.drawers.volumeDrawer = function () {
+    var _this = this;
+    _this.volumeCanvas = document.getElementsByClassName("volumeCanvas")[0];
+    _this.volumeContext = _this.volumeCanvas.getContext('2d');
+    _this.volumeCanvas.width = 300;
+    _this.volumeCanvas.height = 42;
+    _this.rate = (1000 / Settings.getters.getVolumeMeterThreadRate());
+    _this.mask = document.getElementById("logoMask");
+    _this.gradient = _this.volumeContext.createLinearGradient(0, 20, 0, 40);
+    _this.gradient.addColorStop(1, '#DAA15C');
+    _this.gradient.addColorStop(0.75, '#DAA15C');
+    _this.gradient.addColorStop(0.5, '#000000');
+    _this.gradient.addColorStop(0, '#DAA15C');
+    _this.analyser = audioContext.createAnalyser();
+    _this.analyser.fftSize = 1024;
+    _this.input = _this.analyser;
+    // request animation frame workflow variables
+    var requestId = 0;
+    var fpsInterval = _this.rate;
+    var then = 0;
+    var startTime, now, then, elapsed;
+    // shim layer with setTimeout fallback
+    window.requestAnimFrame = (function () {
+        return  window.requestAnimationFrame ||
+                window.webkitRequestAnimationFrame ||
+                window.mozRequestAnimationFrame;
+    })();
+    window.cancelAnimFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame;
+    _this.drawSignal = function () {
+
+        requestId = requestAnimFrame(_this.drawSignal);
+        // throttle requestAnimationFrame to a specific frame rate
+        now = Date.now();
+        elapsed = now - then;
+        // if enough time has elapsed, draw the next frame
+        if (elapsed > fpsInterval) {
+            // Get ready for next frame by setting then=now, but also adjust for your
+            // specified fpsInterval not being a multiple of RAF's interval
+            then = now - (elapsed % fpsInterval);
+            _this.volumeContext.save();
+            _this.volumeContext.drawImage(_this.mask, 0, 0);
+            _this.volumeContext.globalCompositeOperation = "source-in";
+            _this.volumeContext.fillStyle = _this.gradient;
+            _this.volumeContext.fillRect(0, 0, _this.volumeCanvas.width, _this.volumeCanvas.height);
+            _this.volumeContext.globalCompositeOperation = "destination-atop";
+            _this.volumeContext.drawImage(_this.mask, 0, 0);
+            var bufferLength = _this.analyser.frequencyBinCount;
+            var dataArray = new Uint8Array(bufferLength);
+            _this.analyser.getByteFrequencyData(dataArray);
+            dataArray = _this.runningMedian(dataArray)
+            _this.volumeContext.lineWidth = 40;
+            _this.volumeContext.strokeStyle = '#ececec';
+            _this.volumeContext.beginPath();
+            var sliceWidth = 900 * 2.0 / bufferLength;
+            var x = -100;
+            for (var i = 0; i < bufferLength; i++) {
+                var v = null;
+                v = dataArray[i] / 512.0;
+                var y = v * 128;
+                if (i === 0) {
+                    _this.volumeContext.moveTo(x, y + 10);
+                } else {
+                    _this.volumeContext.lineTo(x, y + 10);
+                }
+
+                x += sliceWidth;
+            }
+            _this.volumeContext.lineTo(_this.volumeCanvas.width, _this.volumeCanvas.height / 2 + 10);
+            _this.volumeContext.stroke();
+            _this.volumeContext.restore();
+        }
+    };
+    _this.runningMedian = function (signal) {
+        var dynamicThresholds = [];
+        var d = 0;
+        var l = 1;
+        for (var i = 0; i < signal.length; ++i) {
+            dynamicThresholds[i] = (d + l) * _this.median(signal[i]); // d -> constant threshold , l -> positive constant
+        }
+        return dynamicThresholds;
+    }
+    _this.createMedianFilter = function (length) {
+        var buffer = new Float64Array(length);
+        var history = new Int32Array(length);
+        var counter = 0;
+        var bufCount = 0;
+        function insertItem(x) {
+            var nextCounter = counter++;
+            var oldCounter = nextCounter - length;
+            //First pass:  Remove all old items
+            var ptr = 0;
+            for (var i = 0; i < bufCount; ++i) {
+                var c = history[i];
+                if (c <= oldCounter) {
+                    continue
+                }
+                buffer[ptr] = buffer[i];
+                history[ptr] = c;
+                ptr += 1;
+            }
+            bufCount = ptr;
+            //Second pass:  Insert x
+            if (!isNaN(x)) {
+                var ptr = bufCount;
+                for (var j = bufCount - 1; j >= 0; --j) {
+                    var y = buffer[j];
+                    if (y < x) {
+                        buffer[ptr] = x;
+                        history[ptr] = nextCounter;
+                        break
+                    }
+                    buffer[ptr] = y;
+                    history[ptr] = history[j];
+                    ptr -= 1;
+                }
+                if (j < 0) {
+                    buffer[0] = x;
+                    history[0] = nextCounter;
+                }
+                bufCount += 1;
+            }
+
+            //Return median
+            if (!bufCount) {
+                return NaN;
+            } else if (bufCount & 1) {
+                return buffer[bufCount >>> 1];
+            } else {
+                var mid = bufCount >>> 1;
+                return 0.5 * (buffer[mid - 1] + buffer[mid]);
+            }
+        }
+        return insertItem;
+    }
+    _this.median = _this.createMedianFilter(32);
+    _this.stopDraw = function () {
+        cancelAnimFrame(requestId);
+        requestId = 0;
+    };
+    _this.drawStatic = function () {
+        _this.volumeContext.drawImage(_this.mask, 0, 0);
+    };
+};
+/**
  * momentaryOutput() indicate the current snapshot transcripted details
  *
  */
@@ -3440,6 +3601,7 @@ function ErrorSnapshot(errorPointer, currentTimestamp, xCanvasPosition, snapshot
     _this.pitchCalibration = pitchCalibration;
     _this.note = 0;
     _this.isOnset = false;
+    _this.isOffset = false;
 }
 
 /**
@@ -3859,6 +4021,7 @@ Settings.defaults.global = {tempo: 120, // {BPM}
     masterVolume: 1,
     systemThreadRate: 60, // {Hz} 
     visualThreadRate: 30, // {Hz} 
+    volumeMeterThreadRate: 25, // {Hz} 
     pitchDetectorFFTSize: 2048,
     onsetDetectorFFTSize: 2048,
     onsetDetectorFrameSize: 1024,
@@ -3923,6 +4086,7 @@ Settings.static = {noteStrings: ["C0", "C#0", "D0", "D#0", "E0", "F0", "F#0", "G
 Settings.user.ui = {
     autoFollow: true,
     metronomeFlash: true,
+    volumeMeter: true,
     indicateOutput: true
 };
 Settings.setters = {
@@ -3952,6 +4116,9 @@ Settings.getters = {
     },
     getVisualThreadRate: function () {
         return Settings.defaults.global.visualThreadRate;
+    },
+    getVolumeMeterThreadRate: function () {
+        return Settings.defaults.global.volumeMeterThreadRate;
     },
     getTempo: function () {
         return Settings.defaults.global.tempo;
@@ -4153,6 +4320,7 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
+        Settings.user.ui.volumeMeter = false;
         return stars = 2;
         return stars = 1;
     }
@@ -4163,6 +4331,7 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
+        Settings.user.ui.volumeMeter = false;
         return stars = 2;
     }
     else if (counter > 500 && counter < 800)
@@ -4172,6 +4341,7 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
+        Settings.user.ui.volumeMeter = false;
         return stars = 3;
     }
     else if (counter > 800 && counter < 1500)
@@ -4181,6 +4351,7 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
+        Settings.user.ui.volumeMeter = false;
         return stars = 4;
     }
     else if (counter > 1500 && counter < 3000)
@@ -4189,6 +4360,7 @@ function adjustAppResources(counter) {
         Settings.defaults.global.visualThreadRate = 20;
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.metronomeFlash = false;
+        Settings.user.ui.volumeMeter = false;
         return stars = 5;
     }
     else if (counter > 3000 && counter < 10000)
@@ -4196,30 +4368,35 @@ function adjustAppResources(counter) {
         Settings.defaults.global.systemThreadRate = 60;
         Settings.defaults.global.visualThreadRate = 25;
         Settings.user.ui.metronomeFlash = false;
+        Settings.user.ui.volumeMeter = false;
         return stars = 6;
     }
     else if (counter > 10000 && counter < 30000)
     {
         Settings.defaults.global.systemThreadRate = 70;
         Settings.defaults.global.visualThreadRate = 30;
+        Settings.user.ui.volumeMeter = false;
         return stars = 7;
     }
     else if (counter > 30000 && counter < 80000)
     {
         Settings.defaults.global.systemThreadRate = 90;
         Settings.defaults.global.visualThreadRate = 30;
+        Settings.defaults.global.volumeMeterThreadRate = 25;
         return stars = 8;
     }
     else if (counter > 80000 && counter < 200000)
     {
         Settings.defaults.global.systemThreadRate = 110;
         Settings.defaults.global.visualThreadRate = 30;
+        Settings.defaults.global.volumeMeterThreadRate = 25;
         return stars = 9;
     }
     else if (counter > 200000)
     {
         Settings.defaults.global.systemThreadRate = 140;
         Settings.defaults.global.visualThreadRate = 40;
+        Settings.defaults.global.volumeMeterThreadRate = 30;
         return stars = 10;
     }
 }
