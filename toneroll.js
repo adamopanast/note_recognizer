@@ -1,3 +1,19 @@
+//    This file is part of Toneroll.
+//
+//    Toneroll is free software: you can redistribute it and/or modify
+//    it under the terms of the GNU General Public License as published by
+//    the Free Software Foundation, either version 3 of the License, or
+//    (at your option) any later version.
+//
+//    Toneroll is distributed in the hope that it will be useful,
+//    but WITHOUT ANY WARRANTY; without even the implied warranty of
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//    GNU General Public License for more details.
+//
+//    You should have received a copy of the GNU General Public License
+//    along with Toneroll.  If not, see <http://www.gnu.org/licenses/>.
+//
+//    Copyleft 2015-2016 Fragkopoulos Markos - exog3n@gmail.com
 'use strict';
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var audioContext = new this.AudioContext();
@@ -57,7 +73,7 @@ Settings.user = {};
  *
  */
 function Workspace() {
-    // TODO: instead of pushing window to function we need Workspace to extend window native
+// TODO: instead of pushing window to function we need Workspace to extend window native
     var _this = this;
     _this.compositions = [];
     _this.activeComposition = null;
@@ -138,10 +154,6 @@ function Workspace() {
     _this.events.startTranscription = function () {
         if (_this.workflowController.state === 'MIC_READY') {
             var activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
-            if (Settings.user.ui.volumeMeter) {
-                activeChannel.source.volumeMeter.stopDraw();
-                activeChannel.source.volumeMeter.drawStatic();
-            }
         }
         _this.masterRetriever.audioTranscriber.thread.start();
         _this.masterRetriever.audioRecorder.rec();
@@ -228,9 +240,11 @@ function Workspace() {
         // load recorder audio to buffer
         _this.waitForValue().then(function (result) {
             // use the result here
-
-            activeChannel.track.audio = result;
-            activeChannel.loadPlayer(activeChannel.track.audio);
+            try {
+                activeChannel.track.audio = result;
+                activeChannel.loadPlayer(activeChannel.track.audio);
+            } catch (err) {
+            }
         });
         Settings.states.TRANSCRIBING = false;
     };
@@ -269,7 +283,7 @@ function Workspace() {
             else if (Settings.states.SYNTHPLAY) {
                 activeChannel.synth.stop();
                 Settings.states.PLAY = false;
-                Settings.states.ORIGINALPLAY = false;
+                Settings.states.SYNTHPLAY = false;
             }
             else if (Settings.states.SAMPLERPLAY) {
                 activeChannel.sampler.stop();
@@ -509,11 +523,6 @@ AudioDevices.sources.mic = function (connectTo) {
         _this.device = audioContext.createMediaStreamSource(e);
         _this.output = _this.device;
         _this.output.connect(connectTo);
-        if (Settings.user.ui.volumeMeter) {
-            _this.volumeMeter = new VisualDevices.drawers.volumeDrawer();
-            _this.device.connect(_this.volumeMeter.input);
-            _this.volumeMeter.drawSignal();
-        }
     }
     if (!navigator.getUserMedia) {
         navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
@@ -811,6 +820,7 @@ AudioDevices.sources.synth = function (notesArray, connectTo) {
     _this.stop = function () {
         _this.clock.stop();
         _this.oscillator.stop();
+        _this.synthArray = [];
     }
 
 };
@@ -860,7 +870,7 @@ AudioDevices.utilities.metronome = function () {
     }
 
     _this.nextNote = function () {
-        // Advance current note and time by a 16th note...
+// Advance current note and time by a 16th note...
         var secondsPerBeat = 60.0 / Settings.getters.getTempo(); // Notice this picks up the CURRENT 
         // tempo value to calculate beat length.
         _this.nextNoteTime += 0.25 * secondsPerBeat; // Add beat length to last beat time
@@ -1345,19 +1355,17 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
             // calculate sample rate per second
             __this.sampleRate = synchronizer.countOutputSampleRate();
             if (__this.isOnset)
-                console.log('ONSET');
-            if (Settings.defaults.global.autoRecognizeTempo) {
-                if (__this.isOnset) {
-                    console.log('ONSET');
-                    // calculate tempo - if current cycle is offset push cycle number for calculation
-                    __this.tempo = beatTracker.calculateBPM(__this.currentCycle, __this.sampleRate);
-                    // pass tempo to the visual thread
-                    Settings.setters.setTempo(__this.tempo);
+                if (Settings.defaults.global.autoRecognizeTempo) {
+                    if (__this.isOnset) {
+                        console.log('ONSET');
+                        // calculate tempo - if current cycle is offset push cycle number for calculation
+                        __this.tempo = beatTracker.calculateBPM(__this.currentCycle, __this.sampleRate);
+                        // pass tempo to the visual thread
+                        Settings.setters.setTempo(__this.tempo);
+                    }
                 }
-            }
-            
+
             __this.xCanvasPosition = synchronizer.synchPos(__this.xCanvasPosition, synchronizer.pspc);
-            
             __this.currentSnapshot = SystemDevices.processors.snapshotCreator(__this.pitch, __this.isOnset, __this.tempo, __this.currentTimestamp, __this.xCanvasPosition, __this.currentCycle, __this.snapshotAmp, __this.pitchCalibration); // TODO : updateOnets() must return current cycle boolean for onsets
 
             trackSnapshots.push(__this.currentSnapshot);
@@ -1489,7 +1497,6 @@ SystemDevices.threads.visualThread = function (synchronizer) {
             // value to allow cursor to move based on synchronization - this will affect next cycle
             _this.cursorMove = synchronizer.speedLimiter();
             _this.xCanvasPosition = synchronizer.xCanvasPosition;
-            
         }
     };
     _this.startLoop = function () {
@@ -1792,7 +1799,6 @@ SystemDevices.adjusters.corrector = function () {
 SystemDevices.adjusters.composer = function () {
     var _this = this;
     _this.channelTrack = new ChannelTrack();
-
     _this.finalCut = function (snapshots) {
 
         var minRow = Settings.defaults.global.noteMinSnapshots.dynamic;
@@ -1803,7 +1809,6 @@ SystemDevices.adjusters.composer = function () {
         var groupsFilled = fillGroups(groupsSticked) || groupsSticked;
         var groupsCleaned = cleanUpGroups(groupsFilled) || groupsFilled;
         _this.createNotesFromGroups(groupsCleaned);
-
         function createSnapshotsGroups(snapshots) {
 
             // add silence at the end
@@ -1859,7 +1864,6 @@ SystemDevices.adjusters.composer = function () {
                 _this.setOffset(_this.snapshots[_this.snapshots.length - 1]);
             }
             _this.addSnapshot(noteStart);
-
         }
 
         function cleanUpGroups(snapshotsGroups) {
@@ -1925,12 +1929,10 @@ SystemDevices.adjusters.composer = function () {
 
         function checkTempOnsets(snapshotsGroups) {
             var groups = snapshotsGroups;
-
             // process groups array
             for (var i = 0; i < groups.length; i++) {
 
                 var tempSnap = groups[i].tempOnset;
-
                 // this is only for the first snapshot group - sometimes
                 if (tempSnap.pointer > 2) {
 
@@ -1948,7 +1950,6 @@ SystemDevices.adjusters.composer = function () {
                                 snapshots[groups[i].tempOnset.pointer].isOnset = false;
                                 groups[i].tempOnset = snapshots[j];
                                 snapshots[j].isOnset = true;
-
                                 // set the onset attribute to avoid cut the group later due to minRow
 //                                groups[i].tempOnset.isOnset = true;
 //                        console.log('============' + snapshots[j].pointer + '=============');
@@ -1970,9 +1971,7 @@ SystemDevices.adjusters.composer = function () {
                     prevOffsetPointer = groups[i - 1].tempOffset.pointer;
                 else
                     prevOffsetPointer = 0;
-
                 var curOnsetPointer = groups[i].tempOnset.pointer;
-
                 // check if there is an onset until the previous offset
                 for (var k = curOnsetPointer; k > prevOffsetPointer; k--) {
                     if (snapshots[k].isOnset) {
@@ -2042,9 +2041,7 @@ SystemDevices.adjusters.composer = function () {
             _this.createNotes(groups[i].tempOnset.pointer, groups[i].tempOffset.pointer, groups[i].snapshots);
         }
     };
-
 };
-
 /**
  * synchronizer() adjust the time and space relevance
  *
@@ -2227,7 +2224,7 @@ SystemDevices.processors.snapshotCreator = function (pitch, isOnset, tempo, curr
         }
     }
 //    console.log(snapshot.pointer + " " + snapshot.constructor.name + " " + snapshot.amp + " " + snapshot.isOnset + " " + snapshot.note + " " + " " + snapshot.pitch);
-    console.log(snapshot.pointer + ' ' + snapshot.xCanvasPosition);
+//    console.log(snapshot.pointer + ' ' + snapshot.xCanvasPosition);
 //    console.log(snapshot);
     return snapshot;
 };
@@ -2752,7 +2749,10 @@ SystemDevices.calculators.tap = function () {
         _this.averageBPM = (tmpSum / (i));
         _this.finalBPM = ((_this.averageBPM * 0.8) + (currentBPM * 0.2)) || Settings.defaults.global.tempo;
         if (!isNaN(_this.finalBPM))
-            _this.finalBPM = _this.finalBPM.toFixed(1);
+            try {
+                _this.finalBPM = _this.finalBPM.toFixed(1);
+            } catch (err) {
+            }
         return _this.finalBPM;
     };
     // resets array and average BPM
@@ -3226,153 +3226,6 @@ VisualDevices.drawers.overlayDrawer = function () {
     };
 };
 /**
- * volumeDrawer() draw on a curved line represent the input audio signal
- *
- */
-VisualDevices.drawers.volumeDrawer = function () {
-    var _this = this;
-    _this.volumeCanvas = document.getElementsByClassName("volumeCanvas")[0];
-    _this.volumeContext = _this.volumeCanvas.getContext('2d');
-    _this.volumeCanvas.width = 300;
-    _this.volumeCanvas.height = 42;
-    _this.rate = (1000 / Settings.getters.getVolumeMeterThreadRate());
-    _this.mask = document.getElementById("logoMask");
-    _this.gradient = _this.volumeContext.createLinearGradient(0, 20, 0, 40);
-    _this.gradient.addColorStop(1, '#DAA15C');
-    _this.gradient.addColorStop(0.75, '#DAA15C');
-    _this.gradient.addColorStop(0.5, '#000000');
-    _this.gradient.addColorStop(0, '#DAA15C');
-    _this.analyser = audioContext.createAnalyser();
-    _this.analyser.fftSize = 1024;
-    _this.input = _this.analyser;
-    // request animation frame workflow variables
-    var requestId = 0;
-    var fpsInterval = _this.rate;
-    var then = 0;
-    var startTime, now, then, elapsed;
-    // shim layer with setTimeout fallback
-    window.requestAnimFrame = (function () {
-        return  window.requestAnimationFrame ||
-                window.webkitRequestAnimationFrame ||
-                window.mozRequestAnimationFrame;
-    })();
-    window.cancelAnimFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame;
-    _this.drawSignal = function () {
-
-        requestId = requestAnimFrame(_this.drawSignal);
-        // throttle requestAnimationFrame to a specific frame rate
-        now = Date.now();
-        elapsed = now - then;
-        // if enough time has elapsed, draw the next frame
-        if (elapsed > fpsInterval) {
-            // Get ready for next frame by setting then=now, but also adjust for your
-            // specified fpsInterval not being a multiple of RAF's interval
-            then = now - (elapsed % fpsInterval);
-            _this.volumeContext.save();
-            _this.volumeContext.drawImage(_this.mask, 0, 0);
-            _this.volumeContext.globalCompositeOperation = "source-in";
-            _this.volumeContext.fillStyle = _this.gradient;
-            _this.volumeContext.fillRect(0, 0, _this.volumeCanvas.width, _this.volumeCanvas.height);
-            _this.volumeContext.globalCompositeOperation = "destination-atop";
-            _this.volumeContext.drawImage(_this.mask, 0, 0);
-            var bufferLength = _this.analyser.frequencyBinCount;
-            var dataArray = new Uint8Array(bufferLength);
-            _this.analyser.getByteFrequencyData(dataArray);
-            dataArray = _this.runningMedian(dataArray)
-            _this.volumeContext.lineWidth = 40;
-            _this.volumeContext.strokeStyle = '#ececec';
-            _this.volumeContext.beginPath();
-            var sliceWidth = 900 * 2.0 / bufferLength;
-            var x = -100;
-            for (var i = 0; i < bufferLength; i++) {
-                var v = null;
-                v = dataArray[i] / 512.0;
-                var y = v * 128;
-                if (i === 0) {
-                    _this.volumeContext.moveTo(x, y + 10);
-                } else {
-                    _this.volumeContext.lineTo(x, y + 10);
-                }
-
-                x += sliceWidth;
-            }
-            _this.volumeContext.lineTo(_this.volumeCanvas.width, _this.volumeCanvas.height / 2 + 10);
-            _this.volumeContext.stroke();
-            _this.volumeContext.restore();
-        }
-    };
-    _this.runningMedian = function (signal) {
-        var dynamicThresholds = [];
-        var d = 0;
-        var l = 1;
-        for (var i = 0; i < signal.length; ++i) {
-            dynamicThresholds[i] = (d + l) * _this.median(signal[i]); // d -> constant threshold , l -> positive constant
-        }
-        return dynamicThresholds;
-    }
-    _this.createMedianFilter = function (length) {
-        var buffer = new Float64Array(length);
-        var history = new Int32Array(length);
-        var counter = 0;
-        var bufCount = 0;
-        function insertItem(x) {
-            var nextCounter = counter++;
-            var oldCounter = nextCounter - length;
-            //First pass:  Remove all old items
-            var ptr = 0;
-            for (var i = 0; i < bufCount; ++i) {
-                var c = history[i];
-                if (c <= oldCounter) {
-                    continue
-                }
-                buffer[ptr] = buffer[i];
-                history[ptr] = c;
-                ptr += 1;
-            }
-            bufCount = ptr;
-            //Second pass:  Insert x
-            if (!isNaN(x)) {
-                var ptr = bufCount;
-                for (var j = bufCount - 1; j >= 0; --j) {
-                    var y = buffer[j];
-                    if (y < x) {
-                        buffer[ptr] = x;
-                        history[ptr] = nextCounter;
-                        break
-                    }
-                    buffer[ptr] = y;
-                    history[ptr] = history[j];
-                    ptr -= 1;
-                }
-                if (j < 0) {
-                    buffer[0] = x;
-                    history[0] = nextCounter;
-                }
-                bufCount += 1;
-            }
-
-            //Return median
-            if (!bufCount) {
-                return NaN;
-            } else if (bufCount & 1) {
-                return buffer[bufCount >>> 1];
-            } else {
-                var mid = bufCount >>> 1;
-                return 0.5 * (buffer[mid - 1] + buffer[mid]);
-            }
-        }
-        return insertItem;
-    }
-    _this.median = _this.createMedianFilter(32);
-    _this.stopDraw = function () {
-        cancelAnimFrame(requestId);
-        requestId = 0;
-    };
-    _this.drawStatic = function () {
-        _this.volumeContext.drawImage(_this.mask, 0, 0);
-    };
-};
-/**
  * momentaryOutput() indicate the current snapshot transcripted details
  *
  */
@@ -3739,9 +3592,18 @@ Events.system.addListeners = function (workspace) {
         Settings.states.SYNTHPLAY = false;
         Settings.states.SAMPLERPLAY = false;
         Settings.states.RECOGNIZING_BPM = false;
-        audioContext = new window.AudioContext();
-        TONEROLLDEMO = new Workspace();
+        console.log(audioContext);
+        console.log(TONEROLLDEMO);
         TONEROLLDEMO.pianoroll.clearNotes();
+//        TONEROLLDEMO = null;
+        audioContext.close().then(function () {
+            audioContext = new window.AudioContext();
+            TONEROLLDEMO = new TONEROLLDEMO.constructor;
+//            TONEROLLDEMO = new Workspace();
+//            TONEROLLDEMO.paramHashInstance = new TONEROLLDEMO.constructor;
+            console.log(audioContext);
+            console.log(TONEROLLDEMO);
+        });
     });
     tempo.addEventListener("change", function () {
         workspace.events.changeTempo($(tempo).val());
@@ -4021,7 +3883,6 @@ Settings.defaults.global = {tempo: 120, // {BPM}
     masterVolume: 1,
     systemThreadRate: 60, // {Hz} 
     visualThreadRate: 30, // {Hz} 
-    volumeMeterThreadRate: 25, // {Hz} 
     pitchDetectorFFTSize: 2048,
     onsetDetectorFFTSize: 2048,
     onsetDetectorFrameSize: 1024,
@@ -4086,7 +3947,6 @@ Settings.static = {noteStrings: ["C0", "C#0", "D0", "D#0", "E0", "F0", "F#0", "G
 Settings.user.ui = {
     autoFollow: true,
     metronomeFlash: true,
-    volumeMeter: true,
     indicateOutput: true
 };
 Settings.setters = {
@@ -4107,7 +3967,6 @@ Settings.setters = {
         TONEROLLDEMO.pianoroll.drawTime(bpm);
         var tempoIndicator = document.getElementById("tempo");
         tempoIndicator.value = bpm;
-        console.log(Settings.defaults.global.noteMinSnapshots);
     }
 }
 Settings.getters = {
@@ -4116,9 +3975,6 @@ Settings.getters = {
     },
     getVisualThreadRate: function () {
         return Settings.defaults.global.visualThreadRate;
-    },
-    getVolumeMeterThreadRate: function () {
-        return Settings.defaults.global.volumeMeterThreadRate;
     },
     getTempo: function () {
         return Settings.defaults.global.tempo;
@@ -4320,7 +4176,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 2;
         return stars = 1;
     }
@@ -4331,7 +4186,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 2;
     }
     else if (counter > 500 && counter < 800)
@@ -4341,7 +4195,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 3;
     }
     else if (counter > 800 && counter < 1500)
@@ -4351,7 +4204,6 @@ function adjustAppResources(counter) {
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.indicateOutput = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 4;
     }
     else if (counter > 1500 && counter < 3000)
@@ -4360,7 +4212,6 @@ function adjustAppResources(counter) {
         Settings.defaults.global.visualThreadRate = 20;
         Settings.user.ui.autoFollow = false;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 5;
     }
     else if (counter > 3000 && counter < 10000)
@@ -4368,35 +4219,30 @@ function adjustAppResources(counter) {
         Settings.defaults.global.systemThreadRate = 60;
         Settings.defaults.global.visualThreadRate = 25;
         Settings.user.ui.metronomeFlash = false;
-        Settings.user.ui.volumeMeter = false;
         return stars = 6;
     }
     else if (counter > 10000 && counter < 30000)
     {
         Settings.defaults.global.systemThreadRate = 70;
         Settings.defaults.global.visualThreadRate = 30;
-        Settings.user.ui.volumeMeter = false;
         return stars = 7;
     }
     else if (counter > 30000 && counter < 80000)
     {
         Settings.defaults.global.systemThreadRate = 90;
         Settings.defaults.global.visualThreadRate = 30;
-        Settings.defaults.global.volumeMeterThreadRate = 25;
         return stars = 8;
     }
     else if (counter > 80000 && counter < 200000)
     {
         Settings.defaults.global.systemThreadRate = 110;
         Settings.defaults.global.visualThreadRate = 30;
-        Settings.defaults.global.volumeMeterThreadRate = 25;
         return stars = 9;
     }
     else if (counter > 200000)
     {
         Settings.defaults.global.systemThreadRate = 140;
         Settings.defaults.global.visualThreadRate = 40;
-        Settings.defaults.global.volumeMeterThreadRate = 30;
         return stars = 10;
     }
 }

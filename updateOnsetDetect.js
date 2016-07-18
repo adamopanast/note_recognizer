@@ -13,7 +13,7 @@
 //    You should have received a copy of the GNU General Public License
 //    along with Toneroll.  If not, see <http://www.gnu.org/licenses/>.
 //
-//Copyright 2015 Fragkopoulos Markos - exog3n@gmail.com
+//Copyleft 2015-2016 Fragkopoulos Markos - exog3n@gmail.com
 'use strict';
 
 var self = this;
