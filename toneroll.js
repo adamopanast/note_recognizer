@@ -1,3 +1,5 @@
+//    Toneroll is a real time music transcription tool
+//    Copyright (C) 2015-2016  Markos Fragkopoulos
 //    This file is part of Toneroll.
 //
 //    Toneroll is free software: you can redistribute it and/or modify
@@ -13,7 +15,11 @@
 //    You should have received a copy of the GNU General Public License
 //    along with Toneroll.  If not, see <http://www.gnu.org/licenses/>.
 //
-//    Copyleft 2015-2016 Fragkopoulos Markos - exog3n@gmail.com
+//    Toneroll Copyright 2015-2016 Fragkopoulos Markos - exog3n@gmail.com
+//    This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+//    This is free software, and you are welcome to redistribute it
+//    under certain conditions; type `show c' for details.
+
 'use strict';
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var audioContext = new this.AudioContext();
@@ -38,6 +44,7 @@ SystemDevices.classifiers = {};
 SystemDevices.threads = {};
 SystemDevices.workers = {};
 SystemDevices.controllers = {};
+SystemDevices.connectors = {};
 /**
  * VisualDevices is a global namespace for visual device classes
  *
@@ -68,12 +75,12 @@ Events.user = {};
 var Settings = Settings || {};
 Settings.defaults = {};
 Settings.user = {};
+
 /**
  * Workspace() creates a new Workspace
  *
  */
 function Workspace() {
-// TODO: instead of pushing window to function we need Workspace to extend window native
     var _this = this;
     _this.compositions = [];
     _this.activeComposition = null;
@@ -128,7 +135,7 @@ function Workspace() {
     _this.getActiveChannel = function () {
         return _this.compositions[_this.activeComposition].activeChannel;
     };
-    // local namespace to keep system triggers
+    // local namespace to keep system trigger events
     _this.events = {};
     _this.events.selectInstrument = function (value) {
         _this.masterRetriever.audioTranscriber.pitchDetector.preseter.applyInstrumentPresets(value);
@@ -322,6 +329,9 @@ function Workspace() {
             document.getElementById("tap").disabled = false;
         }
     };
+    _this.events.submitToGrid = function (title, imgUrl, url) {
+        _this.masterRetriever.audioRecorder.submitRecording(title, imgUrl, url);
+    };
 // create composition
     _this.addComposition();
 // initialize listeners
@@ -410,7 +420,7 @@ function CompositionChannel(index, compositionIndex, channelType) {
      *
      * @param {String} channelType
      * @param {object} connectTo is a pointer to the outer device that needs to connect with _this.output - only used in mic source
-     * @param (object) buffer - optional (only for systemBuffer)
+     * @param {Array} inputArray is an audio buffer
      * @return {object} _sourceDevice
      */
     _this.createSourceNode = function createSourceNode(channelType, connectTo, inputArray) {
@@ -489,6 +499,8 @@ function ChannelTrack() {
 /**
  * SignalRetriever() creates a new signal retriever
  * for retrieve audio signal from the routing graph
+ * 
+ * @param {object} workflowController controlling workspace states and UX messages
  *
  */
 function SignalRetriever(workflowController) {
@@ -500,7 +512,6 @@ function SignalRetriever(workflowController) {
     _this.audioRecorder = new AudioDevices.retrievers.audioRecorder();
     _this.simpleGainControler.output.connect(_this.audioRecorder.input);
     // create new auto gain controler device
-//    _this.autoGainControler = new AudioDevices.utilities.autoGainControler();
     _this.volumeAnalyzer = new AudioDevices.utilities.volumeAnalyzer(workflowController);
     _this.simpleGainControler.output.connect(_this.volumeAnalyzer.input);
     // create new audio transcriber device and connect it
@@ -508,7 +519,6 @@ function SignalRetriever(workflowController) {
     _this.audioTuner = new AudioDevices.utilities.audioTuner();
     _this.volumeAnalyzer.output.connect(_this.audioTranscriber.input);
     _this.volumeAnalyzer.output.connect(_this.audioTuner.input);
-    //MAXIMIZER = _this.autoGainControler;
 }
 
 /**
@@ -523,7 +533,7 @@ AudioDevices.sources.mic = function (connectTo) {
         _this.device = audioContext.createMediaStreamSource(e);
         _this.output = _this.device;
         _this.output.connect(connectTo);
-    }
+    };
     if (!navigator.getUserMedia) {
         navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
                 navigator.mozGetUserMedia || navigator.msGetUserMedia;
@@ -538,8 +548,11 @@ AudioDevices.sources.mic = function (connectTo) {
         alert('getUserMedia not supported in this browser.');
     }
 };
+
 /**
  * filePlayer() creates a player device for reproduce audio file buffers
+ * 
+ * @param {AudioDevice} connectTo is an audio device input to connect
  *
  */
 AudioDevices.sources.filePlayer = function (connectTo) {
@@ -554,7 +567,6 @@ AudioDevices.sources.filePlayer = function (connectTo) {
                 _this.device.loop = false;
                 _this.output = _this.device;
                 _this.output.connect(connectTo);
-//                _this.device.start(0);
                 callback(buffer);
             });
         };
@@ -577,10 +589,14 @@ AudioDevices.sources.filePlayer = function (connectTo) {
     _this.bufferFromFile(_this.file, function (buffer) {
     });
 };
+
 /**
  * bufferPlayer() creates a player device for reproduce 
  * recorded buffers / channel track audio
- *
+ * 
+ * @param {AudioBuffer} buffer is an audiobuffer to playback
+ * @param {AudioDevice} connectTo is an audio device input to connect
+ * 
  */
 AudioDevices.sources.bufferPlayer = function (buffer, connectTo) {
     var _this = this;
@@ -590,8 +606,13 @@ AudioDevices.sources.bufferPlayer = function (buffer, connectTo) {
     _this.output = _this.device;
     _this.output.connect(connectTo);
 };
+
 /**
  * sampler() creates a sampler device for playback channel tracks
+ * 
+ * @param {String} instrument defines the kind of instrument samples
+ * @param {AudioNode} outPut is an audioNode input to connect (optional)
+ * @param {Array} notesArray is an array with samplerNotes objects
  *
  */
 AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
@@ -607,7 +628,8 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
     _this.samplesPath = null;
     _this.loadingTime = 0;
     init();
-// init sampler 
+
+    // init sampler 
     function init() {
 
         // path intitialization	
@@ -628,7 +650,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
     }
 
     function SampleLibrary(instrument) {
-
         var _this = this;
         var array = [];
         _this.length = 0;
@@ -638,7 +659,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
             _this.length = array.length;
         };
         _this.doesExist = function (note, octave) {
-
             for (var i = 0; i < array.length; i++) {
                 if ((array[i].note === note) && (array[i].octave === octave)) {
                     return array[i].buffer;
@@ -647,7 +667,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
             return null;
         };
         _this.doesExistIndex = function (note, octave) {
-
             for (var i = 0; i < array.length; i++) {
                 if ((array[i].note === note) && (array[i].octave === octave)) {
                     return i;
@@ -656,7 +675,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
             return null;
         };
         _this.checkIfLoaded = function () {
-
             if (array.length < 1)
                 return false;
             for (var i = 0; i < array.length; i++) {
@@ -701,7 +719,6 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
     }
 
     function loadSamples() {
-        var tmpSample;
         var uniqueSamplesArray = uniques(_this.notesArray);
         for (var i = 0; i < uniqueSamplesArray.length; i++) {
             var currentSamplePath = _this.samplesPath + uniqueSamplesArray[i].note + uniqueSamplesArray[i].octave + ".mp3";
@@ -733,16 +750,15 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
         __this.checkIfLoaded = function () {
             tmp = false;
             var tmp = _this.mySamples.checkIfLoaded();
-            if (tmp)
-                console.log("samples library is loaded");
             return tmp;
-        }
+        };
         __this.setAsLoaded = function () {
             return true;
-        }
-    }
+        };
+    };
 
     var STtime1;
+
     _this.start = function () {
         STtime1 = performance.now();
         finilizeSamplesCue();
@@ -752,25 +768,20 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
         }
         return true;
     };
+
     _this.stop = function () {
         _this.masterGain.gain.value = 0;
         _this.player.stop();
-    }
+    };
 
-    function playSample(note, loadingTime) {
-
+    function playSample(note) {
         _this.player = _this.audioCtx.createBufferSource();
         var noteGain = _this.audioCtx.createGain();
         _this.player.connect(noteGain);
         noteGain.gain.value = note.velocity || 1;
         noteGain.connect(_this.masterGain);
         _this.player.buffer = _this.mySamples.getSampleByIndex(note.sampleIndex);
-        var flag = false;
-        if (note.sampleBuffer)
-            flag = true;
         _this.player.start(note.timeStamp + audioContext.currentTime);
-        //       noteGain.gain.setTargetAtTime(0, note.timeStamp + (note.duration*5), note.duration*0.7);
-
     }
 
     _this.getNotesArray = function () {
@@ -780,9 +791,13 @@ AudioDevices.sources.sampler = function (instrument, outPut, notesArray) {
         _this.masterGain.gain.value = val;
     };
 };
+
 /**
  * synth() creates a synthesizer device for playback channel tracks
  *
+ * @param {Array} notesArray is an array with samplerNotes objects
+ * @param {AudioDevice} connectTo is an audio device input to connect
+ * 
  */
 AudioDevices.sources.synth = function (notesArray, connectTo) {
     var _this = this;
@@ -806,8 +821,8 @@ AudioDevices.sources.synth = function (notesArray, connectTo) {
         playEvent = _this.clock.setTimeout(function () {
             _this.gainNode.gain.value = 0.00;
         }, ts + dur);
-//	_this.clock.timeStretch(audioCtx.currentTime, [playEvent], 0.5);
     };
+
     _this.start = function () {
         _this.clock.start();
         _this.oscillator.start();
@@ -822,10 +837,10 @@ AudioDevices.sources.synth = function (notesArray, connectTo) {
         _this.oscillator.stop();
         _this.synthArray = [];
     }
-
 };
+
 /**
- * audioTuner() creates a metronome device with self clock that outputs sound
+ * audioTuner() creates an indipendant pitch tuner device
  * 
  */
 AudioDevices.utilities.audioTuner = function () {
@@ -835,7 +850,7 @@ AudioDevices.utilities.audioTuner = function () {
     _this.input = _this.pitchDetector.input;
     _this.pitchDetectorBuffer = _this.pitchDetector.buffer;
     _this.thread = new SystemDevices.threads.tunerThread(_this.pitchDetector, _this.indicator);
-}
+};
 
 /**
  * metronome() creates a metronome device with self clock that outputs sound
@@ -870,13 +885,13 @@ AudioDevices.utilities.metronome = function () {
     }
 
     _this.nextNote = function () {
-// Advance current note and time by a 16th note...
+        // Advance current note and time by a 16th note...
         var secondsPerBeat = 60.0 / Settings.getters.getTempo(); // Notice this picks up the CURRENT 
         // tempo value to calculate beat length.
         _this.nextNoteTime += 0.25 * secondsPerBeat; // Add beat length to last beat time
 
         _this.current16thNote++; // Advance the beat number, wrap to zero
-        if (_this.current16thNote == 16) {
+        if (_this.current16thNote === 16) {
             _this.current16thNote = 0;
         }
     };
@@ -927,6 +942,7 @@ AudioDevices.utilities.metronome = function () {
     };
     _this.init();
 };
+
 /**
  * simpleGainControler() creates a simple volume device - most used as the channel
  * device replacing a splitter device
@@ -939,10 +955,12 @@ AudioDevices.utilities.simpleGainControler = function (gainValue) {
     _this.device.gain.value = gainValue || 1;
     _this.input = _this.device;
     _this.output = _this.input;
-    // TODO: system creates a gain node
 };
+
 /**
- * autoGainControler() creates the auto gain controler device
+ * autoGainControler() creates an auto gain controler device
+ * 
+ * @param {object} workflowController controlling workspace states and UX messages
  *
  */
 AudioDevices.utilities.autoGainControler = function (workflowController) {
@@ -1011,11 +1029,6 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
                     if (__this.bottomCounter === 1000) {
                         __this.averageBottomdb = __this.sumBottomdb / __this.bottomCounter;
                         if (__this.averageBottomdb < -25) {
-
-                            // TODO in a clever way - problem is the noise level
-//                            var newValue = _this.currentMaximize + 1;
-//                            _this.maximize(newValue);
-
                             // alert user for low volume level
                             if (Settings.states.TRANSCRIBING)
                                 workflowController.printUserMessage("LOW_LEVEL");
@@ -1031,12 +1044,15 @@ AudioDevices.utilities.autoGainControler = function (workflowController) {
                     __this.prevBottomdb = db;
                 }
             }
-        }
+        };
     }
     _this.controller = new controller();
 };
+
 /**
- * volumeAnalyzer() creates a volume meter
+ * volumeAnalyzer() creates a volume meter indicates input DB
+ * 
+ * @param {object} workflowController controlling workspace states and UX messages
  *
  */
 AudioDevices.utilities.volumeAnalyzer = function (workflowController) {
@@ -1072,7 +1088,6 @@ AudioDevices.utilities.volumeAnalyzer = function (workflowController) {
         var db = 20 * Math.log(Math.max(max, Math.pow(10, -72 / 20))) / Math.LN10;
         db = Math.round(db);
         // get current db and controll maximize
-//        if(autoGainControl)
         _this.autoGainControler.controller.peakDetect(db);
         var grad = ctx.createLinearGradient(w / 10, h * 0.07, w / 10, h);
         grad.addColorStop(0, 'red');
@@ -1093,6 +1108,7 @@ AudioDevices.utilities.volumeAnalyzer = function (workflowController) {
         _this.autoGainControler.maximize(value);
     };
 };
+
 /**
  * dynamicCompressor() creates a basic dynamic compressor device
  *
@@ -1109,8 +1125,9 @@ AudioDevices.utilities.dynamicCompressor = function () {
         _this.device.reduction.value = preset.reduction;
         _this.device.attack.value = preset.attack;
         _this.device.release.value = preset.release;
-    }
+    };
 };
+
 /**
  * equalizer() creates an equalizer device.
  * 
@@ -1135,7 +1152,6 @@ AudioDevices.utilities.equalizer = function () {
         }
     }
     // Connect the input to band 0, and set band 7 as output
-//                _this.input.connect(_this.bands[0]);
     _this.input = _this.bands[0];
     _this.output = _this.bands[7];
     // Sets all band frequencies at once; freqs is a list
@@ -1177,6 +1193,7 @@ AudioDevices.utilities.equalizer = function () {
             _this.setBandGains(preset.gains);
     };
 };
+
 /**
  * audioRecorder() creates the audio recorder device
  *
@@ -1186,9 +1203,10 @@ AudioDevices.retrievers.audioRecorder = function () {
     _this.finalRecordedBuffer = null;
     _this.bufferLen = Settings.defaults.global.recorderBufferLength;
     _this.recorderCore = audioContext.createScriptProcessor(_this.bufferLen, 2, 2);
-    /**       vazw ena boolean isRecording pou 8a to xreiastw gia eswterikes diadikasies kai na elegxw
-     *        pote krataw ta input buffers . 
-     */
+    _this.audioExporter = new SystemDevices.processors.audioExporter();
+    _this.submitRecording = function (title, imgUrl, url) {
+        _this.audioExporter.cloudSaver.process(title, _this.audioExporter.blob, imgUrl, url);
+    };
     _this.isRecording = false;
     _this.recorderCore.onaudioprocess = function (e) {
         if (_this.isRecording) {
@@ -1198,17 +1216,6 @@ AudioDevices.retrievers.audioRecorder = function () {
             });
         }
     };
-    /**     pairnei to finalRecordedBuffer kai to metatrepei se audio buffer
-     *      
-     *      @return {AudioBuffer} finalAudioBuffer
-     */
-//    _this.returnRecordedAudioBuffer = function (finalRecordedBuffer) {
-//        var finalAudioBuffer = audioContext.createBuffer(2, finalRecordedBuffer[0].length, audioContext.sampleRate);
-//        finalAudioBuffer.getChannelData(0).set(finalRecordedBuffer[0]);
-//        finalAudioBuffer.getChannelData(0).set(finalRecordedBuffer[1]);
-//        return finalAudioBuffer;
-//    };
-
     _this.recorderWorker = new Worker('recorder.js');
     _this.recorderWorker.onmessage = function (e) {
         if (e.data) {
@@ -1216,6 +1223,7 @@ AudioDevices.retrievers.audioRecorder = function () {
             _this.finalRecordedBuffer = audioContext.createBuffer(2, returnedBuffer[0].length, audioContext.sampleRate);
             _this.finalRecordedBuffer.getChannelData(0).set(returnedBuffer[0]);
             _this.finalRecordedBuffer.getChannelData(1).set(returnedBuffer[1]);
+            _this.audioExporter.process(_this.finalRecordedBuffer);
         }
     };
     // arxikopoihsh tou recorder_Worker , stelnei command init kai to sample rate     
@@ -1241,6 +1249,208 @@ AudioDevices.retrievers.audioRecorder = function () {
     // must connect with destination for scriptprocessor to play
     _this.output.connect(audioContext.destination);
 };
+
+// https://github.com/Jam3/audiobuffer-to-wav
+// lamejs
+SystemDevices.processors.audioExporter = function () {
+    var _this = this;
+    _this.wav = null;
+    _this.mp3 = null;
+    _this.blob = null;
+    _this.cloudSaver = new SystemDevices.connectors.cloudSaver();
+
+    _this.process = function (buffer) {
+        _this.mp3 = audioBufferToMp3(buffer);
+//        _this.wav = audioBufferToWav(buffer);
+//        _this.blob = new window.Blob([new DataView(_this.wav)], {
+//            type: 'audio/wav'
+//        });
+        _this.blob = new Blob(_this.mp3, {type: 'audio/mpeg'});
+
+        $('#grid-form-modal').modal('show');
+    };
+
+    // wav encoding functions
+    function audioBufferToWav(buffer, opt) {
+        opt = opt || {};
+        var numChannels = buffer.numberOfChannels;
+        var sampleRate = buffer.sampleRate;
+        var format = opt.float32 ? 3 : 1;
+        var bitDepth = format === 3 ? 32 : 16;
+        var result;
+        if (numChannels === 2) {
+            result = interleave(buffer.getChannelData(0), buffer.getChannelData(1));
+        } else {
+            result = buffer.getChannelData(0);
+        }
+        return encodeWAV(result, format, sampleRate, numChannels, bitDepth);
+    }
+    function encodeWAV(samples, format, sampleRate, numChannels, bitDepth) {
+        var bytesPerSample = bitDepth / 8;
+        var blockAlign = numChannels * bytesPerSample;
+        var buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+        var view = new DataView(buffer);
+
+        /* RIFF identifier */
+        writeString(view, 0, 'RIFF');
+        /* RIFF chunk length */
+        view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+        /* RIFF type */
+        writeString(view, 8, 'WAVE');
+        /* format chunk identifier */
+        writeString(view, 12, 'fmt ');
+        /* format chunk length */
+        view.setUint32(16, 16, true);
+        /* sample format (raw) */
+        view.setUint16(20, format, true);
+        /* channel count */
+        view.setUint16(22, numChannels, true);
+        /* sample rate */
+        view.setUint32(24, sampleRate, true);
+        /* byte rate (sample rate * block align) */
+        view.setUint32(28, sampleRate * blockAlign, true);
+        /* block align (channel count * bytes per sample) */
+        view.setUint16(32, blockAlign, true);
+        /* bits per sample */
+        view.setUint16(34, bitDepth, true);
+        /* data chunk identifier */
+        writeString(view, 36, 'data');
+        /* data chunk length */
+        view.setUint32(40, samples.length * bytesPerSample, true);
+        if (format === 1) { // Raw PCM
+            floatTo16BitPCM(view, 44, samples);
+        } else {
+            writeFloat32(view, 44, samples);
+        }
+        return buffer;
+    }
+    function interleave(inputL, inputR) {
+        var length = inputL.length + inputR.length;
+        var result = new Float32Array(length);
+        var index = 0;
+        var inputIndex = 0;
+        while (index < length) {
+            result[index++] = inputL[inputIndex];
+            result[index++] = inputR[inputIndex];
+            inputIndex++;
+        }
+        return result;
+    }
+    function writeFloat32(output, offset, input) {
+        for (var i = 0; i < input.length; i++, offset += 4) {
+            output.setFloat32(offset, input[i], true);
+        }
+    }
+    function floatTo16BitPCM(output, offset, input) {
+        for (var i = 0; i < input.length; i++, offset += 2) {
+            var s = Math.max(-1, Math.min(1, input[i]));
+            output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+    }
+    function writeString(view, offset, string) {
+        for (var i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    }
+
+    // mp3 encoding functions
+    function audioBufferToMp3(buffer) {
+        var mp3encoder = new lamejs.Mp3Encoder(buffer.numberOfChannels, buffer.sampleRate, 320);
+
+        var data = buffer.getChannelData(0);
+        var len = data.length, i = 0;
+        var dataAsInt16Array = new Int16Array(len);
+        while (i < len) {
+            dataAsInt16Array[i] = convert(data[i++]);
+        }
+        function convert(n) {
+            var v = n < 0 ? n * 32768 : n * 32767;       // convert in range [-32768, 32767]
+            return Math.max(-32768, Math.min(32768, v)); // clamp
+        }
+
+        var ld = dataAsInt16Array;
+        var rd = buffer.numberOfChannels > 1 ? dataAsInt16Array : null;
+
+        var blockSize = 1152;
+        var blocks = [];
+        var mp3Buffer;
+
+        var length = ld.length;
+        for (var i = 0; i < length; i += blockSize) {
+            var lc = ld.subarray(i, i + blockSize);
+            var rc = rd.subarray(i, i + blockSize);
+            mp3Buffer = mp3encoder.encodeBuffer(lc, rc);
+            if (mp3Buffer.length > 0)
+                blocks.push(mp3Buffer);
+        }
+
+        mp3Buffer = mp3encoder.flush();
+        if (mp3Buffer.length > 0)
+            blocks.push(mp3Buffer);
+
+        return blocks;
+    }
+
+};
+
+SystemDevices.connectors.cloudSaver = function () {
+    var _this = this;
+
+    _this.process = function (title, file, imgUrl, url) {
+        var data = {title: title, file: file, imgUrl: imgUrl, url: url};
+        var config = new AWS.Config({
+           
+        });
+        var s3 = new AWS.S3({credentials: config.credentials}, {Bucket: 't0n3r011'});
+        
+        var filename = data.title + '_' + String(Date.now());
+        var params = {
+            Bucket: 't0n3r011', /* required */
+            Key: 'users_recordings/' + filename + '.mp3',
+            ACL: 'public-read',
+            Body: data.file,
+            ContentDisposition: 'Specifies presentational information for the object.',
+            ContentType: 'audio/mpeg',
+            Metadata: {
+                title: data.title,
+                imgUrl: data.imgUrl,
+                url: data.url
+            }
+        };
+        function putCloudObject() {
+            s3.putObject(params, function (err, data) {
+                if (err) {
+//                    console.log("Got error:", err.message);
+//                    console.log("Request:");
+//                    console.log(this.request.httpRequest);
+//                    console.log("Response:");
+//                    console.log(this.httpResponse);
+                    return false;
+                }
+                else {
+                    console.log(data);           // successful response
+                    return true;
+                }
+            });
+        }
+
+        var cloudPromise = new Promise(function (resolve, reject) {
+            if (putCloudObject())
+                resolve();
+            else
+                var loop = setInterval(function () {
+                    if (putCloudObject()) {
+                        resolve();
+                        clearInterval(loop);
+                    }
+                }, 500);
+        });
+        cloudPromise.then(function () {
+            console.log("UPLOADED");
+        });
+    };
+};
+
 /**
  * audioTranscriber() construct the audio transctiber
  * for retrieve audio signal from the routing graph
@@ -1252,7 +1462,6 @@ AudioDevices.retrievers.audioTranscriber = function () {
     _this.input = _this.gain.input;
     _this.pitchDetector = new SystemDevices.detectors.pitchDetector();
     _this.onsetDetector = new SystemDevices.detectors.eventDetector();
-    _this.beatTracker = new SystemDevices.calculators.beatTracker();
     _this.synchronizer = new SystemDevices.adjusters.synchronizer();
     _this.corrector = new SystemDevices.adjusters.corrector();
     _this.composer = new SystemDevices.adjusters.composer();
@@ -1260,24 +1469,24 @@ AudioDevices.retrievers.audioTranscriber = function () {
     _this.onsetDetectorBuffer = _this.onsetDetector.buffer;
     _this.input.connect(_this.pitchDetector.input);
     _this.input.connect(_this.onsetDetector.input);
-    _this.thread = new SystemDevices.threads.systemThread(_this.pitchDetector, _this.onsetDetector, _this.beatTracker, _this.synchronizer, _this.corrector, _this.composer);
+    _this.thread = new SystemDevices.threads.systemThread(_this.pitchDetector, _this.onsetDetector, _this.synchronizer, _this.corrector, _this.composer);
     _this.startTranscription = function () {
         _this.thread.start();
     };
     _this.output = _this.input;
 };
+
 /**
  * systemThread() executed x times per second and trigger system methods
  * 
  * @param {object} pitchDetector is a system device
  * @param {object} onsetDetector is a system device
- * @param {object} beatTracker is a system device
  * @param {object} synchronizer is a system device
  * @param {object} corrector is a system device
  * @param {object} composer is a system device
  *
  */
-SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, beatTracker, synchronizer, corrector, composer) {
+SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, synchronizer, corrector, composer) {
     var _this = this;
     _this.rate = 1000 / Settings.getters.getSystemThreadRate();
     _this.autocorrection = false;
@@ -1299,7 +1508,7 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
         __this.onsetHoldCounter = 0;
         __this.snapshotAmp = null;
         __this.sampleRate = null;
-        __this.tempo = beatTracker.tempo;
+        __this.tempo = Settings.getters.getTempo();
         __this.currentSnapshot = null;
         __this.snapshotsNeedForCorrrection = 1;
         __this.tempBeatCounter = null;
@@ -1334,7 +1543,7 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
             // real time pitch correction based on correlations
 //            __this.pitch = corrector.simplePitchCorrection(__this.pitchHistogram, __this.currentCycle).bestCorrelation;
             __this.pitch = __this.pitchCalibration.bestCorrelation;
-//ONSET FINDER
+// FINDER
             // add restriction to check after noteMinSnapshots again
             if (__this.checkForOnset) {
                 __this.isOnset = onsetDetector.updateOnsets(__this.currentCycle, __this.pitch);
@@ -1354,16 +1563,6 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
             __this.snapshotAmp = onsetDetector.workflow.normalized;
             // calculate sample rate per second
             __this.sampleRate = synchronizer.countOutputSampleRate();
-            if (__this.isOnset)
-                if (Settings.defaults.global.autoRecognizeTempo) {
-                    if (__this.isOnset) {
-                        console.log('ONSET');
-                        // calculate tempo - if current cycle is offset push cycle number for calculation
-                        __this.tempo = beatTracker.calculateBPM(__this.currentCycle, __this.sampleRate);
-                        // pass tempo to the visual thread
-                        Settings.setters.setTempo(__this.tempo);
-                    }
-                }
 
             __this.xCanvasPosition = synchronizer.synchPos(__this.xCanvasPosition, synchronizer.pspc);
             __this.currentSnapshot = SystemDevices.processors.snapshotCreator(__this.pitch, __this.isOnset, __this.tempo, __this.currentTimestamp, __this.xCanvasPosition, __this.currentCycle, __this.snapshotAmp, __this.pitchCalibration); // TODO : updateOnets() must return current cycle boolean for onsets
@@ -1372,7 +1571,8 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
             // actions to do if autocorrection (AKA preprocessing) is enabled
             if (_this.autocorrection) {
                 trackSnapshots = corrector.processSnapshots(trackSnapshots);
-                // draw snapshots - change _this.visualThread.drawableSnapshot which is the virtual thread's variable - also we produce technical delay, for the system to be able to correct before render
+                // draw snapshots - change _this.visualThread.drawableSnapshot which is the virtual thread's variable,
+                //  also we produce technical delay, for the system to be able to correct before render
                 __this.snapshotsNeedForCorrrection = 8;
             }
             else {
@@ -1386,7 +1586,7 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
             _this.trackSnapshots = trackSnapshots;
             // composedTrack is the array with notes for the composition channel
             _this.composedTrack = composer.channelTrack.music;
-        }
+        };
 
         __this.loop = setInterval(function () {
             // throttle requestAnimationFrame to a specific frame rate
@@ -1401,6 +1601,7 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
             }
         }, _this.rate);
     };
+
     _this.start = function () {
         fpsInterval = _this.rate;
         then = audioContext.currentTime * 1000;
@@ -1412,9 +1613,10 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
         // start threads
         _this.thread = new _this.thread(_this.trackSnapshots);
         _this.visualThread.startLoop();
-//        set the global state to transcribing
+        // set the global state to transcribing
         Settings.states.TRANSCRIBING = true;
     };
+
     _this.stop = function () {
         // stop sample playback if it is sample
         if (ACTIVECHANNEL.type === "userSample") {
@@ -1428,19 +1630,19 @@ SystemDevices.threads.systemThread = function (pitchDetector, onsetDetector, bea
         clearInterval(_this.thread.loop);
         _this.visualThread.stopLoop();
         Settings.states.TRANSCRIBING = false;
-//        synchronizer.clock.stop();
         return _this.trackSnapshots;
     };
 };
+
 /**
  * visualThread() executed x times per second and trigger visual methods
+ * 
+ * @param {object} synchronizer is a system device
  *
  */
 SystemDevices.threads.visualThread = function (synchronizer) {
     var _this = this;
     _this.rate = (1000 / Settings.getters.getVisualThreadRate());
-//    _this.drawableSnapshot = null;
-
     _this.tempo = Settings.getters.getTempo();
     _this.cursorMove = false;
     _this.xCanvasPosition = 0;
@@ -1470,11 +1672,6 @@ SystemDevices.threads.visualThread = function (synchronizer) {
             then = now - (elapsed % fpsInterval);
             _this.tempo = Settings.getters.getTempo();
             synchronizer.countSystemDelay.drawStartTime = _this.pianorollDrawer.renderSnapshots(_this.snapshotBuffer.readBuffer(), synchronizer.pspc, _this.cursorMove);
-            // visualize audio input background
-//                try {
-//                    _this.signalDrawer.renderSignal(_this.xCanvasPosition, SIMPLEANALYSER.getInput());
-//                } catch (err) {
-//                }
             // indicate snapshot details
             if (Settings.user.ui.indicateOutput) {
                 _this.momentaryOutput.indicate(_this.snapshotBuffer.buffer[_this.snapshotBuffer.buffer.length - 1], _this.tempo);
@@ -1493,18 +1690,19 @@ SystemDevices.threads.visualThread = function (synchronizer) {
 
             synchronizer.setSpeed(_this.tempo);
             synchronizer.countSystemDelay.calculateOffset();
-            // TODO: mix the following together in synscronizer device
             // value to allow cursor to move based on synchronization - this will affect next cycle
             _this.cursorMove = synchronizer.speedLimiter();
             _this.xCanvasPosition = synchronizer.xCanvasPosition;
         }
     };
+
     _this.startLoop = function () {
         fpsInterval = _this.rate;
         then = audioContext.currentTime * 1000;
         startTime = then;
         _this.animLoop();
     };
+
     _this.stopLoop = function () {
         // clear cursor when loop stops (when transcription stops)
         _this.overlayDrawer.clearCursor();
@@ -1512,8 +1710,12 @@ SystemDevices.threads.visualThread = function (synchronizer) {
         requestId = 0;
     };
 };
+
 /**
  * tunerThread() executed x times per second and trigger tuning methods
+ * 
+ * @param {object} pitchDetector is a system device
+ * @param {object} indicator is a visual device
  * 
  */
 SystemDevices.threads.tunerThread = function (pitchDetector, indicator) {
@@ -1555,7 +1757,7 @@ SystemDevices.threads.tunerThread = function (pitchDetector, indicator) {
     };
     _this.start = function () {
         _this.thread = new _this.thread();
-//        set the global state to TESTING
+        // set the global state to TESTING
         Settings.states.TESTING = true;
     };
     _this.stop = function () {
@@ -1564,6 +1766,7 @@ SystemDevices.threads.tunerThread = function (pitchDetector, indicator) {
         Settings.states.TESTING = false;
     };
 };
+
 /**
  * preseter() adjust the right preset for each system function based
  * on the kind of instrument
@@ -1675,9 +1878,9 @@ SystemDevices.adjusters.preseter = function (compressor, equalizer) {
         equalizer.setPreset(filterSettings);
     };
 };
+
 /**
- * corrector() correct snapshots based on the
- * track array - currently characterize snapshots with onsets and offsets
+ * corrector() correct snapshots based on the track array
  *
  */
 SystemDevices.adjusters.corrector = function () {
@@ -1685,7 +1888,7 @@ SystemDevices.adjusters.corrector = function () {
     _this.snapshots = [];
     _this.processSnapshots = function (snaps) {
         var editableSnapshot = snaps[snaps.length - 3];
-//             Correction of the postprevious Note
+        // Correction of the postprevious Note
         try {
             if (editableSnapshot instanceof NoteSnapshot) {
                 var correctPitch = _this.correctPitch(editableSnapshot.pointer + 3, snaps);
@@ -1700,7 +1903,6 @@ SystemDevices.adjusters.corrector = function () {
         try {
             var snapshots = snapshots;
             var lowDiff = 300; // low frequencies differrence in Hz
-            var highDiff = 0; // high frequencies differrence in Hz
             var lowThreshold = 100; // lowest threshold in Hz to compare - many times the errors are below this threhold
             var highThreshold = 0; // higest threshold in Hz to compare - many times the errors are above this threhold
             var thisObject = snapshots[arrayPosition - 3];
@@ -1771,6 +1973,7 @@ SystemDevices.adjusters.corrector = function () {
             return isSilence;
         }
     };
+// FINDER - auto correlation workflow
     _this.simplePitchCorrection = function (pitchHistogram, cycle) {
         if (cycle > 1) {
             var thisObject = pitchHistogram[cycle];
@@ -1789,8 +1992,9 @@ SystemDevices.adjusters.corrector = function () {
             }
         }
         return thisObject;
-    }
+    };
 };
+
 /**
  * composer() compose the composition by mixing each snapshot
  * information with classifier patterns information
@@ -1800,7 +2004,6 @@ SystemDevices.adjusters.composer = function () {
     var _this = this;
     _this.channelTrack = new ChannelTrack();
     _this.finalCut = function (snapshots) {
-
         var minRow = Settings.defaults.global.noteMinSnapshots.dynamic;
         var snapshotsGroups = createSnapshotsGroups(snapshots);
         var groupsOnseted = checkTempOnsets(snapshotsGroups) || snapshotsGroups;
@@ -1810,7 +2013,6 @@ SystemDevices.adjusters.composer = function () {
         var groupsCleaned = cleanUpGroups(groupsFilled) || groupsFilled;
         _this.createNotesFromGroups(groupsCleaned);
         function createSnapshotsGroups(snapshots) {
-
             // add silence at the end
             snapshots.push(new SilenceSnapshot(snapshots.length - 1).pointer);
             var groups = [];
@@ -1829,18 +2031,11 @@ SystemDevices.adjusters.composer = function () {
                     // fill the group with notes
                     groups[groups.length - 1].addSnapshot(tempSnap);
                 } else if (groupStarted && (tempSnap.note !== snapshots[i - 1 - lookFurther].note)) {
-//                    if (snapshots[i - 1] instanceof ErrorSnapshot) {
-//                        lookFurther++;
-//                    } else {
-//                        lookFurther = 0;
                     groupStarted = false;
-//                    }
                 }
-                ////                        snapshots[i - snapshotCounted - 1] = new SilenceSnapshot(snapshots[i - snapshotCounted - 1].pointer);                                           
             }
             return groups;
         }
-
         function snapshotsGroup(noteStart) {
             var _this = this;
             _this.snapshots = [];
@@ -1854,15 +2049,11 @@ SystemDevices.adjusters.composer = function () {
                 }
                 _this.tempOffset = _this.snapshots[_this.snapshots.length - 1];
                 _this.snapshots[_this.snapshots.length - 1].isOffset = true;
-//                try {
-//                    _this.snapshots[_this.snapshots.length - 2].isOffset = false;
-//                } catch (e) {
-//                }
             };
             _this.addSnapshot = function (snapshot) {
                 _this.snapshots.push(snapshot);
                 _this.setOffset(_this.snapshots[_this.snapshots.length - 1]);
-            }
+            };
             _this.addSnapshot(noteStart);
         }
 
@@ -1905,6 +2096,7 @@ SystemDevices.adjusters.composer = function () {
             }
             return snapshotsGroups;
         }
+
         function changeOnset(snapshotsGroups, onsetFounded) {
             if (onsetFounded.note === (snapshotsGroups[i + 1].tempOnset.note || snapshotsGroups[i + 1].snapshots[1].note)) {
                 snapshots[snapshotsGroups[i + 1].tempOnset.pointer].isOnset = false;
@@ -1931,17 +2123,11 @@ SystemDevices.adjusters.composer = function () {
             var groups = snapshotsGroups;
             // process groups array
             for (var i = 0; i < groups.length; i++) {
-
                 var tempSnap = groups[i].tempOnset;
                 // this is only for the first snapshot group - sometimes
                 if (tempSnap.pointer > 2) {
-
-//            var prev = [];
                     // check while two previous amps going downwards
                     for (var j = tempSnap.pointer; j > tempSnap.pointer - 2; j--) {
-//                for (var k = 1; k <= minRow; k++) {
-//                    prev.push(snapshots[j - k].amp);
-//                }
                         var prev = snapshots[j - 1].amp;
                         var prev2 = snapshots[j - 2].amp;
                         if (prev < prev2) {
@@ -1951,21 +2137,14 @@ SystemDevices.adjusters.composer = function () {
                                 groups[i].tempOnset = snapshots[j];
                                 snapshots[j].isOnset = true;
                                 // set the onset attribute to avoid cut the group later due to minRow
-//                                groups[i].tempOnset.isOnset = true;
-//                        console.log('============' + snapshots[j].pointer + '=============');
-//                        groups[i].snapshots.unshift(snapshots[j]);            // give dublicates
                             }
                             break;
                         }
-//                else {
-//                    groups[i].snapshots.unshift(snapshots[j]);                // give dublicates
-//                }
                     }
                 } else {
                     // this is only for the first snapshot group - sometimes
                     groups[i].tempOnset = snapshots[0];
                 }
-
                 var prevOffsetPointer = null;
                 if (i > 0)                                                              // condition for the first group
                     prevOffsetPointer = groups[i - 1].tempOffset.pointer;
@@ -1981,29 +2160,7 @@ SystemDevices.adjusters.composer = function () {
                         break;
                     }
                 }
-
             }
-
-            // check if onsets in between
-//                var onsetsCount = 0;
-//                var onsetsArray = [];
-//                var counter = 0;
-//                console.log("-----size----" + groups[i].snapshots.length);
-//                for (var k = 0; k < groups[i].snapshots.length; k = k + 2) {
-//                    if (groups[i].snapshots[k].isOnset) {
-//                        onsetsCount++;
-//                        console.log("---------" + groups[i].snapshots[k].pointer + "-" + groups[i].tempOnset.pointer);
-//                        console.log("---------" + k);
-//                        onsetsArray.push(2);
-////                        k += 1;
-//                    }
-//                }
-//                if (onsetsCount > 1) {
-//                    // slice a group when more than one onset are on it 
-//                    var newGroups = sliceSnapshotsGroup(groups[i], onsetsArray);
-//                    groups = addNewGroups(groups, newGroups, i);
-//                }
-
             return groups;
         }
 
@@ -2023,11 +2180,11 @@ SystemDevices.adjusters.composer = function () {
             }
             return groups;
         }
-    }
+    };
+
     _this.createNotes = function (onsetPointer, offsetPointer, snapshots) {
         //create the whole single note from the snapshots
         var note = new SingleNote(onsetPointer, offsetPointer, snapshots);
-        //console.log(note);
         _this.channelTrack.music.push(note);
         return _this.channelTrack;
     };
@@ -2035,6 +2192,7 @@ SystemDevices.adjusters.composer = function () {
         _this.channelTrack.music.push(note);
         return _this.channelTrack;
     };
+// FINDER - ok with the min length of the notes?
     _this.createNotesFromGroups = function (groups) {
         for (var i = 0; i < groups.length; i++) {
 //            if (groups[i].snapshots.length >= Settings.defaults.global.noteMinSnapshots.dynamic)
@@ -2042,6 +2200,7 @@ SystemDevices.adjusters.composer = function () {
         }
     };
 };
+
 /**
  * synchronizer() adjust the time and space relevance
  *
@@ -2101,15 +2260,9 @@ SystemDevices.adjusters.synchronizer = function () {
             _this.psps = _this.psps - (_this.psps * this.offsetSecs);
         }
     };
-    // TODO DEBUG
     // delay maybe from the mic in or the web audio api or the browser
     var unknownOffsetDelay = null;
     _this.speedLimiter = function () {
-//        var clockLoop = _this.clock.setTimeout(function () {
-//            _this.xCanvasPosition++;
-//            _this.stepForward = true;
-//        }, (_this.msppp / 1000))
-//        return _this.stepForward;
         if ((audioContext.currentTime - _this.zeroTimestamp) >= _this.dynamicMsDiff) {
             _this.dynamicMsDiff = _this.dynamicMsDiff + _this.msppp / 1000;
             if (_this.xCanvasPosition < 10)
@@ -2124,6 +2277,7 @@ SystemDevices.adjusters.synchronizer = function () {
     _this.sampleRate = null;
     _this.startProccessingTimestamp = _this.zeroTimestamp;
     _this.tmpFinalOutputSamplesLength = null;
+
     /**
      * countOutputSampleRate() measure the real frequency per second of the thread
      * which is equal to the system output sample rate
@@ -2137,14 +2291,16 @@ SystemDevices.adjusters.synchronizer = function () {
             _this.startProccessingTimestamp = _this.globalTimestamp;
             _this.sampleRate = _this.systemCycles - _this.tmpFinalOutputSamplesLength;
             _this.tmpFinalOutputSamplesLength = _this.systemCycles;
-            // TODO: here we can count the most common finalOutputSampleRate each time (in compare with the previous ones) and use this
         }
         return _this.sampleRate;
     };
-// FINDER
+
     /**
      * calculateMinResults() is a calculation to find minNoteValue -> Hz /(bpm/60sec) * minNoteValue
      * if the result is over noteMinSnapshots then minNoteValue is true
+     *
+     * @param {int} rate is the system thread rate
+     * @param {int} bpm is the current tempo
      *
      * @return {int} minNoteValue - 2=1/8 4=1/16 8=1/32
      * @return {int} remainSnaps snapshots to add on Settings.defaults.global.noteMinSnapshots when composing
@@ -2168,13 +2324,17 @@ SystemDevices.adjusters.synchronizer = function () {
             }
             counter++;
         }
-    }
+    };
     _this.calculateMinResults(Settings.defaults.global.systemThreadRate, Settings.defaults.global.tempo);
     _this.prevSnapshotPos = null;
     _this.tmpXCanvasPosition = null;
     _this.counter = 1;
+
     /**
      * synchPos() is a way to synchronize the xPos between the two asynchronous threads
+     * 
+     * @param {float} snapshotPos is the current snapshot's posX
+     * @param {float} pspcVisual is the pixel spedd per second related to visual thread
      *
      */
     _this.synchPos = function (snapshotPos, pspcVisual) {
@@ -2195,8 +2355,9 @@ SystemDevices.adjusters.synchronizer = function () {
         }
         _this.prevSnapshotPos = snapshotPos;
         return snapshotPos;
-    }
+    };
 };
+
 /**
  * snapshotCreator() create Snapshots
  *
@@ -2207,12 +2368,13 @@ SystemDevices.adjusters.synchronizer = function () {
  * @param {int} xCanvasPosition is the current x poxition on canvas
  * @param {int} currentCycle is the current thread cycle
  * @param {float} snapshotAmp is the current cycle signal amplitude
+ * @param {object} pitchCalibration contains more details about the snapshot's auto correlation
  * 
  */
 SystemDevices.processors.snapshotCreator = function (pitch, isOnset, tempo, currentTimestamp, xCanvasPosition, currentCycle, snapshotAmp, pitchCalibration) {
     var snapshot = processPitch(pitch);
     function processPitch(pitch) {
-        if (pitch === -1) { //if (ac === -1 || noteEnded) {
+        if (pitch === -1) {
             // create silence object instance
             return new SilenceSnapshot(currentCycle, currentTimestamp, xCanvasPosition, snapshotAmp);
         } else if (pitch === 11025 || pitch === 12000) {
@@ -2223,11 +2385,9 @@ SystemDevices.processors.snapshotCreator = function (pitch, isOnset, tempo, curr
             return new NoteSnapshot(pitch, isOnset, tempo, currentCycle, currentTimestamp, xCanvasPosition, snapshotAmp, pitchCalibration);
         }
     }
-//    console.log(snapshot.pointer + " " + snapshot.constructor.name + " " + snapshot.amp + " " + snapshot.isOnset + " " + snapshot.note + " " + " " + snapshot.pitch);
-//    console.log(snapshot.pointer + ' ' + snapshot.xCanvasPosition);
-//    console.log(snapshot);
     return snapshot;
 };
+
 /**
  * snapshotBuffer() is system device for buffering the asynchronous system thread with visual thread snapshots
  *
@@ -2248,14 +2408,15 @@ SystemDevices.processors.snapshotBuffer = function () {
             _this.bufferCounter = 0;
             _this.preBuffer.push(snapshot);
         }
-    }
+    };
     _this.readBuffer = function () {
         _this.buffer = _this.preBuffer;
         _this.preBuffer = [];
         return _this.buffer;
-    }
+    };
 
 };
+
 /**
  * normalizer() create a real time normalizer
  *
@@ -2263,6 +2424,8 @@ SystemDevices.processors.snapshotBuffer = function () {
  * @param {array} normalized is the normalized array
  * @param {float} maxNormValue is the max value between unnormalized frames
  * @param {String} type is the type of function requested normalization
+ * @param {boolean} startNormalize is a boolean to for trigger
+ * @param {float} pitch is the current snap pitch
  * 
  */
 SystemDevices.processors.normalizer = function (unNormalized, normalized, maxNormValue, type, startNormalize, pitch) {
@@ -2325,7 +2488,7 @@ SystemDevices.processors.normalizer = function (unNormalized, normalized, maxNor
         normalized = _this.factor / m * _this.unNormalized[_this.unNormalized.length - 1] || 0;
     } else {
         for (var j = 0; j < _this.unNormalized.length; j++) {
-            // noise gate - 
+            // noise gate
             if ((_this.type !== 'updatePitch') && (Math.abs(_this.unNormalized[j]) > _this.noisegate) || (_this.type === 'updatePitch' && Math.abs(_this.unNormalized[j]) > _this.noisegate)) {
                 normalized[j + arrayPos] = _this.factor / m * _this.unNormalized[j];
             } else {
@@ -2346,6 +2509,7 @@ SystemDevices.processors.normalizer = function (unNormalized, normalized, maxNor
     }
     return {unNormalized: _this.unNormalized, normalized: normalized, maxNormValue: m};
 };
+
 /**
  * pitchDetector() detect pitch/pitches for each snapshot
  *
@@ -2360,7 +2524,6 @@ SystemDevices.detectors.pitchDetector = function () {
     _this.pitchAnalyserNode = audioContext.createAnalyser();
     _this.pitchAnalyserNode.fftSize = Settings.defaults.global.pitchDetectorFFTSize;
     _this.pitchAnalyserNode.smoothingTimeConstant = 1;
-    // * pitchAnalyserTempBuf = new Uint8Array(pitchAnalyserBuflen);
     _this.buffer = new Uint8Array(_this.pitchAnalyserNode.fftSize);
     _this.audioInput = {unNormalized: [], normalized: [], maxNormValue: 0};
     // connect internal devices
@@ -2397,6 +2560,7 @@ SystemDevices.detectors.pitchDetector = function () {
         return correlation;
     };
 };
+
 /**
  * eventDetector() detect events (onsets, offsets) on snapshots
  *
@@ -2426,7 +2590,6 @@ SystemDevices.detectors.eventDetector = function () {
     _this.updateOnsetDetectWorker = new Worker('updateOnsetDetect.js');
     _this.updateOnsetPickWorker = new Worker('updateOnsetPick.js');
     _this.updateOnsetDetectWorker.onmessage = function (event) {
-
         // normalize the audio input frame
         _this.workflow.unNormalized = event.data;
         var processedSignal = SystemDevices.processors.normalizer(_this.workflow.unNormalized, _this.workflow.normalized, _this.workflow.maxNormValue, 'onsetDetectedFrame');
@@ -2449,6 +2612,9 @@ SystemDevices.detectors.eventDetector = function () {
     };
     /**
      * updateOnsets() the main onset detect function
+     * 
+     * @param {int} currentCycle is the current system thread cycle
+     * @param {float} pitch is the current snap pitch
      * 
      * @return {boolean} currentCycleIsOnset is aboolean indicates if the current thread cycle is an onset
      *
@@ -2476,101 +2642,7 @@ SystemDevices.detectors.eventDetector = function () {
         return _this.currentCycleIsOnset;
     };
 };
-/**
- * beatTracker() calculate tempo - DEPRECATED for demo
- *
- */
-SystemDevices.calculators.beatTracker = function () {
-    var _this = this;
-    _this.tempo = Settings.getters.getTempo();
-    _this.onsets = [];
-    _this.intervals = null;
-    _this.bpmTop = [];
-    _this.cycleTempos = [];
-    _this.systemThreadRate = 1000 / Settings.getters.getSystemThreadRate();
-    _this.dominantTempo = Settings.getters.getTempo();
-    _this.calculateBPM = function (onsetCycle, sampleRate) {
-        _this.onsets.push(onsetCycle);
-        _this.intervals = _this.CountIntervalsBetweenNearbyPeaks(_this.onsets);
-        var groups = _this.GroupNeighborsByTempo(_this.intervals, sampleRate);
-        _this.bpmTop = groups.sort(function (intA, intB) {
-            return intB.count - intA.count;
-        }).splice(0, 5);
-        _this.bpmCondition = _this.dominantTempo !== '-Infinity' && !isNaN(_this.bpmTop[0].tempo);
-        // summarize the tempos from each cycle in an array and then find the most common
-        try {
-            if (_this.cycleTempos.length < 1) {
-                if (_this.bpmCondition) {
-                    _this.cycleTempos.push((_this.bpmTop[0].tempo));
-                    return parseInt(_this.bpmTop[0].tempo.toFixed(1));
-                } else
-                    return Settings.getters.getTempo();
-            } else {
-                if (_this.bpmCondition) {
-                    _this.cycleTempos.push((_this.bpmTop[0].tempo));
-                    _this.dominantTempo = Math.max.apply(Math, _this.cycleTempos);
-                    _this.tempo = _this.dominantTempo;
-                    // set the global state of bpm recognized
-                    Settings.states.BPM_RECOGNIZED = true;
-                    return parseInt(_this.dominantTempo.toFixed(1));
-                } else
-                    return parseInt(_this.dominantTempo.toFixed(1));
-            }
-        } catch (err) {
-        }
 
-    };
-    // Function used to return a histogram of peak intervals
-    _this.CountIntervalsBetweenNearbyPeaks = function (peaks) {
-        var intervalCounts = [];
-        peaks.forEach(function (peak, index) {
-            for (var i = 0; i < 10; i++) {
-                var interval = peaks[index + i] - peak;
-                var foundInterval = intervalCounts.some(function (intervalCount) {
-                    if (intervalCount.interval === interval)
-                        return intervalCount.count++;
-                });
-//                 console.log("interval");
-//                console.log(foundInterval);
-                if (!foundInterval) {
-                    intervalCounts.push({
-                        interval: interval,
-                        count: 1
-                    });
-                }
-            }
-//            console.log("----------------------");
-        });
-        return intervalCounts;
-    };
-    // Function used to return a histogram of tempo candidates.
-    _this.GroupNeighborsByTempo = function (intervalCounts, sampleRate) {
-        var tempoCounts = [];
-        intervalCounts.forEach(function (intervalCount) {
-            if (intervalCount.interval !== 0) {
-                // TODO : replaced by countOutputSampleRate - need FIX - wrong results
-                if (_this.systemThreadRate > 0)
-                    var theoreticalTempo = 60 / (intervalCount.interval / (sampleRate || Settings.getters.getSystemThreadRate()));
-                // Adjust the tempo to fit within the 90-180 BPM range
-                while (theoreticalTempo < 80)
-                    theoreticalTempo *= 2;
-                while (theoreticalTempo > 180)
-                    theoreticalTempo /= 2;
-                var foundTempo = tempoCounts.some(function (tempoCount) {
-                    if (tempoCount.tempo === theoreticalTempo)
-                        return tempoCount.count += intervalCount.count;
-                });
-                if (!foundTempo) {
-                    tempoCounts.push({
-                        tempo: theoreticalTempo,
-                        count: intervalCount.count
-                    });
-                }
-            }
-        });
-        return tempoCounts;
-    };
-};
 /**
  * tempoController() is a class for holding the tempo related objects
  *
@@ -2579,7 +2651,7 @@ SystemDevices.controllers.tempoController = function () {
     var _this = this;
     _this.metronome = new AudioDevices.utilities.metronome();
     _this.tap = new SystemDevices.calculators.tap();
-}
+};
 
 /**
  * workflowController() for set states on the system's workflow and showing user messages
@@ -2598,8 +2670,7 @@ SystemDevices.controllers.workflowController = function () {
             _this.state = state;
             _this.printUserMessage(state);
         }
-    }
-
+    };
     var messageQueue = [{text: null, class: null}];
     messageQueue.shift();
     _this.printUserMessage = function (state) {
@@ -2695,8 +2766,8 @@ SystemDevices.controllers.workflowController = function () {
             showMessage();
         }
 
-    }
-}
+    };
+};
 
 /**
  * tap() calculate the bpm from the user tapping
@@ -2759,12 +2830,13 @@ SystemDevices.calculators.tap = function () {
     _this.reset = function () {
         _this.array = [];
         _this.averageBPM = 0;
-    }
+    };
 // returns Array (debug function)
     _this.getArray = function () {
         return _this.array;
-    }
+    };
 };
+
 /**
  * pianorollInitializer() draw the composition pianoroll
  *
@@ -2919,6 +2991,7 @@ VisualDevices.initializers.pianorollInitializer = function () {
         _this.drawer.renderNotes(composedTrack);
     };
 };
+
 /**
  * pianorollDrawer() draw on composition pianoroll
  *
@@ -2933,6 +3006,7 @@ VisualDevices.drawers.pianorollDrawer = function () {
     _this.notesOverlayContext.fillStyle = _this.snapshotColor;
     _this.notesOverlayContext.globalAlpha = 0.6;
     // delay maybe from the mic in or the web audio api or the browser
+// FINDER - unknownOffsetDelay
     var unknownOffsetDelay = 10;
     _this.renderSnapshots = function (bufferedSnapshots, pspc, cursorMove) {
         if (cursorMove) {
@@ -2949,7 +3023,6 @@ VisualDevices.drawers.pianorollDrawer = function () {
                 _this.notesOverlayContext.fillRect(drawable[i].posX, drawable[i].posY, drawable[i].width, drawable[i].height);
                 _this.notesOverlayContext.stroke();
             }
-
             return performance.now();
         }
     };
@@ -2964,15 +3037,11 @@ VisualDevices.drawers.pianorollDrawer = function () {
             _this.notesOverlayContext.globalAlpha = 0.5;
             var posY = _this.returnNoteHeight(note);
             _this.notesOverlayContext.fillRect(posX + Settings.defaults.global.pianorollDrawOffset, posY + 3, noteWidth * 0.95, 7); // multiply the noteWidth with 0.95 to avoid 2 notes in serie to appear as one
-
             _this.notesOverlayContext.font = "16px Arial";
             _this.notesOverlayContext.fillText(composedTrack[i].snapshots.length, posX + Settings.defaults.global.pianorollDrawOffset, posY + 3);
-//            _this.notesOverlayContext.font = "12px Arial";
-//            _this.notesOverlayContext.fillText(i, posX + Settings.defaults.global.pianorollDrawOffset + 15, posY + 3);
-//            console.log(composedTrack[i].snapshots);
             _this.notesOverlayContext.stroke();
         }
-    }
+    };
     _this.returnNoteHeight = function (note) {
         var posY = _this.notesOverlayCanvas.height;
         switch (note) {
@@ -3171,6 +3240,7 @@ VisualDevices.drawers.pianorollDrawer = function () {
         }
     };
 };
+
 /**
  * overlayDrawer() draw on a transparent overlay canvas front of pianoroll, 
  * currently used for time cursor only
@@ -3222,9 +3292,9 @@ VisualDevices.drawers.overlayDrawer = function () {
             _this.colorOpacityWorkflow.currentColoredLineOpacity = 0;
             _this.colorOpacityWorkflow.opacityStep = parseInt(Settings.defaults.global.visualThreadRate / (Settings.defaults.global.tempo / 10));
         }
-
     };
 };
+
 /**
  * momentaryOutput() indicate the current snapshot transcripted details
  *
@@ -3263,8 +3333,9 @@ VisualDevices.indicators.momentaryOutput = function () {
             _this.tempo.value = Settings.getters.getTempo();
     };
 };
+
 /**
- * momentaryOutput() indicate the current snapshot transcripted details
+ * tunerOutput() indicate the standalone tuner details
  *
  */
 VisualDevices.indicators.tunerOutput = function () {
@@ -3298,8 +3369,18 @@ VisualDevices.indicators.tunerOutput = function () {
         }
     };
 };
+
 /**
  * NoteSnapshot() is a constructor of notesnapshot objects
+ * 
+ * @param {float} pitch
+ * @param {boolean} isOnset
+ * @param {float} tempo
+ * @param {int} notePointer
+ * @param {float} currentTimestamp
+ * @param {float} xCanvasPosition
+ * @param {float} snapshotAmp
+ * @param {object} pitchCalibration
  *
  */
 function NoteSnapshot(pitch, isOnset, tempo, notePointer, currentTimestamp, xCanvasPosition, snapshotAmp, pitchCalibration) {
@@ -3359,6 +3440,10 @@ function NoteSnapshot(pitch, isOnset, tempo, notePointer, currentTimestamp, xCan
 /**
  * SingleNote() is a constructor of note objects,
  * this is produced of note snapshots in row
+ * 
+ * @param {int} noteStartPointer
+ * @param {int} noteEndPointer
+ * @param {Array} snapshots
  *
  */
 function SingleNote(noteStartPointer, noteEndPointer, snapshots) {
@@ -3379,18 +3464,14 @@ function SingleNote(noteStartPointer, noteEndPointer, snapshots) {
         _this.bpm = _this.snapshots[0].bpm || 0;
         _this.timestamp = _this.snapshots[0].timestamp;
         _this.timeDuration = _this.snapshots[_this.snapshots.length - 1].timestamp - _this.snapshots[0].timestamp;
-    }
+    };
     _this.processNoteSnapshots = function (snapShots) {
         var snapshotPitches = [];
         var snapshotBPM = [];
-//        console.log("---------");
-//        console.log(i);
         for (var i = 0; i < snapShots.length; i++) {
-//            console.log(snapShots[i]);
             snapshotPitches.push(snapShots[i].pitch);
             snapshotBPM.push(snapShots[i].bpm);
         }
-
         var mostCommonPitch = getMaxOccurrence(snapshotPitches);
         var mostCommonBPM = getMaxOccurrence(snapshotBPM);
         for (var i = 0; i < snapShots.length; i++) {
@@ -3409,7 +3490,6 @@ function SingleNote(noteStartPointer, noteEndPointer, snapshots) {
             snapShots[i].isOffset = tempIsOffset;
             snapShots[i].bpm = mostCommonBPM;
         }
-
         _this.snapshots = snapShots;
         // get the most common value in an array
         function getMaxOccurrence(array) {
@@ -3429,6 +3509,11 @@ function SingleNote(noteStartPointer, noteEndPointer, snapshots) {
 
 /**
  * SilenceSnapshot() is a constructor of silence snapshots objects
+ * 
+ * @param {int} silencePointer
+ * @param {float} currentTimestamp
+ * @param {float} xCanvasPosition
+ * @param {float} snapshotAmp
  *
  */
 function SilenceSnapshot(silencePointer, currentTimestamp, xCanvasPosition, snapshotAmp) {
@@ -3442,6 +3527,12 @@ function SilenceSnapshot(silencePointer, currentTimestamp, xCanvasPosition, snap
 
 /**
  * ErrorSnapshot() is a constructor of error snapshots objects
+ * 
+ * @param {int} errorPointer
+ * @param {float} currentTimestamp
+ * @param {float} xCanvasPosition
+ * @param {float} snapshotAmp
+ * @param {object} pitchCalibration
  *
  */
 function ErrorSnapshot(errorPointer, currentTimestamp, xCanvasPosition, snapshotAmp, pitchCalibration) {
@@ -3460,6 +3551,12 @@ function ErrorSnapshot(errorPointer, currentTimestamp, xCanvasPosition, snapshot
 /**
  * SamplerNote() is a constructor for notes for the sampler workflow 
  * (these are like signle notes objects)
+ * 
+ * @param {String} note
+ * @param {int} octave
+ * @param {float} velocity is a number between 0 and 1
+ * @param {float} timeStamp
+ * @param {float} duration
  *
  */
 function SamplerNote(note, octave, velocity, timeStamp, duration) {
@@ -3479,18 +3576,16 @@ function SamplerNote(note, octave, velocity, timeStamp, duration) {
     };
     _this.SetSampleIndex = function (index) {
         _this.sampleIndex = index;
-    }
+    };
 }
-
 
 /**
  * addListeners() add listeners to a predefined list of DOM elements
  * 
- * @param {object} workspace is the workspace object of the app
+ * @param {objectworkspace is the workspace object of the app} 
  *
  */
 Events.system.addListeners = function (workspace) {
-
     // assing DOM elements to variables
     var audioInput = document.getElementById("audio-input-btn");
     var selectInstrument = document.getElementById("instrumentSelection");
@@ -3510,6 +3605,7 @@ Events.system.addListeners = function (workspace) {
     var metronomeActivate = document.getElementById("metronomeActivate");
     var tap = document.getElementById("tap");
     var autoTempo = document.getElementById("autoTempo");
+    var submitToGrid = document.getElementById("submitToGrid");
     // add listeners to elements
     selectInstrument.addEventListener("change", function () {
         workspace.events.selectInstrument(this.value);
@@ -3595,12 +3691,9 @@ Events.system.addListeners = function (workspace) {
         console.log(audioContext);
         console.log(TONEROLLDEMO);
         TONEROLLDEMO.pianoroll.clearNotes();
-//        TONEROLLDEMO = null;
         audioContext.close().then(function () {
             audioContext = new window.AudioContext();
             TONEROLLDEMO = new TONEROLLDEMO.constructor;
-//            TONEROLLDEMO = new Workspace();
-//            TONEROLLDEMO.paramHashInstance = new TONEROLLDEMO.constructor;
             console.log(audioContext);
             console.log(TONEROLLDEMO);
         });
@@ -3617,15 +3710,19 @@ Events.system.addListeners = function (workspace) {
     autoTempo.addEventListener('change', function () {
         workspace.events.autoTempo($(autoTempo).is(':checked'));
     });
+    submitToGrid.addEventListener("click", function () {
+        var title = $("#gridTitle").val();
+        var imgUrl = $("#gridImgUrl").val();
+        var url = $("#gridUrl").val();
+        workspace.events.submitToGrid(title, imgUrl, url);
+    });
 };
 /**
  * pianoroll() handles the UI interactivity of the pianoroll and board containers
  *
  */
 UI.panels.pianoroll = function () {
-    // resizable & draggable
-//    $('#board').draggable().resizable();
-
+// FINDER - doublescroll
     // double scroll
 //    $('#board').height(window.innerHeight * 0.8);
 //    $('#board').width(window.innerWidth * 0.8);
@@ -3637,7 +3734,6 @@ UI.panels.pianoroll = function () {
         $('#board .center-wrapper').height(window.innerHeight - 64);
         $('#board .bottom-wrapper').css("top", $('#board').height() - 50);
     }
-
     // initialize position and dimensions
     posDimInit();
     // change position and dimensions on window resize
@@ -3672,14 +3768,17 @@ UI.panels.pianoroll = function () {
         $("#pianoroll .bottom-wrapper").css("margin-left", 0 - $(this).scrollLeft());
     });
 };
+
 /**
  * followDraw() is a method for apply scroll follow to the cursor move
+ * 
  * @param {int} position is the current x cursor position
  *
  */
 UI.draw.followDraw = function (position) {
     $('#board').scrollLeft(position - ($('#board').width() / 1.5));
 };
+
 /**
  * getHelp() change the user help text based on the mouse hover
  *
@@ -3690,7 +3789,6 @@ UI.reactions.getHelp = function () {
         $("#help .info").hide();
         $("#help .default").show();
     }
-
     $("#indicator .pitch").mouseenter(function () {
         $("#help .info").hide();
         $("#help .indicatorPitch").show();
@@ -3736,7 +3834,6 @@ UI.reactions.getHelp = function () {
     $("#pianoroll .center-wrapper").mouseenter(function () {
         $("#help .info").hide();
         function PianoRollPos(notesOverlayCanvasHeight) {
-
             var _this = this;
             _this.bar;
             _this.bit;
@@ -3744,7 +3841,6 @@ UI.reactions.getHelp = function () {
             _this.octave;
             _this.notesOverlayCanvasHeight = notesOverlayCanvasHeight;
             _this.set = function (xCord, yCord) {
-
                 var tmpX = (xCord / 80) + 1;
                 var offset = 20;
                 _this.bar = parseInt(tmpX);
@@ -3752,29 +3848,29 @@ UI.reactions.getHelp = function () {
                 var tmpY = (((_this.notesOverlayCanvasHeight - offset) - (yCord)) / 12);
                 _this.octave = parseInt(tmpY / 10);
                 var tmpNote = parseInt((tmpY - _this.octave * 10) * 1.2);
-                if (tmpNote == 0)
+                if (tmpNote === 0)
                     _this.note = 'C';
-                if (tmpNote == 1)
+                if (tmpNote === 1)
                     _this.note = 'C#';
-                if (tmpNote == 2)
+                if (tmpNote === 2)
                     _this.note = 'D';
-                if (tmpNote == 3)
+                if (tmpNote === 3)
                     _this.note = 'D#';
-                if (tmpNote == 4)
+                if (tmpNote === 4)
                     _this.note = 'E';
-                if (tmpNote == 5)
+                if (tmpNote === 5)
                     _this.note = 'F';
-                if (tmpNote == 6)
+                if (tmpNote === 6)
                     _this.note = 'F#';
-                if (tmpNote == 7)
+                if (tmpNote === 7)
                     _this.note = 'G';
-                if (tmpNote == 8)
+                if (tmpNote === 8)
                     _this.note = 'G#';
-                if (tmpNote == 9)
+                if (tmpNote === 9)
                     _this.note = 'A';
-                if (tmpNote == 10)
+                if (tmpNote === 10)
                     _this.note = 'A#';
-                if (tmpNote == 11)
+                if (tmpNote === 11)
                     _this.note = 'B';
             };
             _this.copyFrom = function (PnPos) {
@@ -3787,20 +3883,19 @@ UI.reactions.getHelp = function () {
                 if (!PnPos)
                     return null;
                 var flag = true;
-                if (_this.bar != PnPos.bar)
+                if (_this.bar !== PnPos.bar)
                     flag = false;
-                if (_this.bit != PnPos.bit)
+                if (_this.bit !== PnPos.bit)
                     flag = false;
-                if (_this.note != PnPos.note)
+                if (_this.note !== PnPos.note)
                     flag = false;
-                if (_this.octave != PnPos.octave)
+                if (_this.octave !== PnPos.octave)
                     flag = false;
                 return flag;
             };
             _this.toString = function () {
                 return _this.bar + "." + _this.bit + " " + _this.note + _this.octave;
-            }
-
+            };
         }
         ;
         function getMousePos(canvas, evt) {
@@ -3828,17 +3923,20 @@ UI.reactions.getHelp = function () {
         $("#currentNote").html("");
     });
 };
+
 /**
- * buttons() initialize button reactions 
+ * buttons() initialize button reactions -
+ * toggle transcribe/playback buttons when user stop the transcription
  *
  */
-UI.reactions.buttons = function () {     //toggle transcribe/playback buttons when user stop the transcription
+UI.reactions.buttons = function () {
     $("#stop").click(function () {
         $("#startTranscription").fadeOut(500, function () {
             $("#startPlayback").fadeIn();
         });
     });
 };
+
 /**
  * reset() reset the UI elements to initial condition
  *
@@ -3856,8 +3954,11 @@ UI.reset = function () {
         $(this).removeClass("disabled");
     });
 };
+
 /**
  * initialize() is the app UI initial load actions 
+ * 
+ * @param {object} workspace is the workspace object of the app
  *
  */
 UI.initialize = function (workspace) {
@@ -3870,6 +3971,7 @@ UI.initialize = function (workspace) {
     $('#demo-intro-modal').modal('show');
     $('#changePrecision')[0].value = Settings.defaults.global.systemThreadRate;
 };
+
 /**
  * global is a namespace for store global default values
  *
@@ -3906,6 +4008,7 @@ Settings.defaults.global = {tempo: 120, // {BPM}
     canvasWidth: window.innerWidth * 4,
     defaultInstrument: "piano"
 };
+
 /**
  * normalizer is a namespace for holding normalizer presets
  *
@@ -3915,6 +4018,7 @@ Settings.defaults.normalizer = {onsetDetectedFrame: {factor: 1000, isInteger: fa
     updateOnsets: {factor: 1, isInteger: false, frameSize: Settings.defaults.global.onsetDetectorFFTSize, noiseGate: 0.5},
     simpleAnalyser: {factor: 1, isInteger: false, frameSize: Settings.defaults.global.normalizeFrameSize, noiseGate: 0.01}
 };
+
 /**
  * states is a namespace for holding states booleans for the global workflow
  *
@@ -3926,14 +4030,15 @@ Settings.states = {
     ORIGINALPLAY: false,
     SYNTHPLAY: false,
     SAMPLERPLAY: false,
-    RECOGNIZING_BPM: false,
+    RECOGNIZING_BPM: false
 };
+
 /**
  * messages store all the ui messages
  *
  */
 Settings.messages = {MIC_READY: "Microphone initialized! You can now start transcribing audio input by clicking REC!",
-    SAMPLE_READY: "File loaded! You can now start transcribing audio input by clicking REC!", // in front of this message we need to add the loaded track name
+    SAMPLE_READY: "File loaded! You can now start transcribing audio input by clicking REC!",
     NOT_READY: "NOT_READY",
     LOADING: "Please wait",
     PLAYBACK_READY: "Transcription completed! You can now playback your composition by clicking PLAY!",
@@ -3942,13 +4047,28 @@ Settings.messages = {MIC_READY: "Microphone initialized! You can now start trans
     REFRESHED: "Toneroll workspace has been refreshed!",
     LOW_LEVEL: "LOW_LEVEL"
 };
+
+/**
+ * static holding static system variables
+ *
+ */
 Settings.static = {noteStrings: ["C0", "C#0", "D0", "D#0", "E0", "F0", "F#0", "G0", "G#0", "A0", "A#0", "B0", "C1", "C#1", "D1", "D#1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3", "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5", "C6", "C#6", "D6", "D#6", "E6", "F6", "F#6", "G6", "G#6", "A6", "A#6", "B6", "C7", "C#7", "D7", "D#7", "E7", "F7", "F#7", "G7", "G#7", "A7", "A#7", "B7"]
 };
+
+/**
+ * ui holding the ui states
+ *
+ */
 Settings.user.ui = {
     autoFollow: true,
     metronomeFlash: true,
     indicateOutput: true
 };
+
+/**
+ * setters consisting of setters functions for setting values of global variables
+ *
+ */
 Settings.setters = {
     setSystemThreadRate: function (rate) {
         Settings.defaults.global.systemThreadRate = rate;
@@ -3968,7 +4088,12 @@ Settings.setters = {
         var tempoIndicator = document.getElementById("tempo");
         tempoIndicator.value = bpm;
     }
-}
+};
+
+/**
+ * getters consisting of getters functions for getting values from global variables
+ *
+ */
 Settings.getters = {
     getSystemThreadRate: function () {
         return Settings.defaults.global.systemThreadRate;
@@ -3979,7 +4104,7 @@ Settings.getters = {
     getTempo: function () {
         return Settings.defaults.global.tempo;
     }
-}
+};
 
 /**
  * instrumentPresets is a namespace to store all presets for input processing 
@@ -3992,7 +4117,7 @@ Settings.defaults.instrumentPresets = {
             knee: 6,
             ratio: 2,
             attack: 1,
-            release: 30,
+            release: 30
         },
         kind: {// Base the frequency bandwidth from the table -> http://www.independentrecording.net/irn/resources/freqchart/main_display.htm
             male: {filter: {// presets to be used on the noisereducer module - ParametricEQ orientation usage // LIKE Noise reducer presets
@@ -4006,7 +4131,7 @@ Settings.defaults.instrumentPresets = {
                     types: ["highpass", "lowpass"],
                     Qs: [1, 1]
                 }
-            },
+            }
         }
     },
     strings: {compressor: {threshold: -4,
@@ -4014,7 +4139,7 @@ Settings.defaults.instrumentPresets = {
             knee: 6,
             ratio: 3,
             attack: 40,
-            release: 80,
+            release: 80
         },
         kind: {bass: {filter: {freqs: [41, 343],
                     types: ["highpass", "lowpass"],
@@ -4045,7 +4170,7 @@ Settings.defaults.instrumentPresets = {
                     types: ["highpass", "lowpass"],
                     Qs: [1, 1]
                 }
-            },
+            }
         }
     },
     brass: {compressor: {threshold: -8,
@@ -4053,7 +4178,7 @@ Settings.defaults.instrumentPresets = {
             knee: 6,
             ratio: 2.5,
             attack: 80,
-            release: 250,
+            release: 250
         },
         kind: {tuba: {filter: {freqs: [41, 343],
                     types: ["highpass", "lowpass"],
@@ -4079,7 +4204,7 @@ Settings.defaults.instrumentPresets = {
                     types: ["highpass", "lowpass"],
                     Qs: [1, 1]
                 }
-            },
+            }
         }
     },
     woodwinds: {compressor: {threshold: -8,
@@ -4087,7 +4212,7 @@ Settings.defaults.instrumentPresets = {
             knee: 6,
             ratio: 2.5,
             attack: 80,
-            release: 250,
+            release: 250
         },
         kind: {constraBassoon: {filter: {freqs: [29, 200],
                     types: ["highpass", "lowpass"],
@@ -4128,7 +4253,7 @@ Settings.defaults.instrumentPresets = {
                     types: ["highpass", "lowpass"],
                     Qs: [1, 1]
                 }
-            },
+            }
         }
     },
     piano: {
@@ -4137,7 +4262,7 @@ Settings.defaults.instrumentPresets = {
             knee: 6,
             ratio: 6,
             attack: 40,
-            release: 200,
+            release: 200
         },
         kind: {standard88Key: {filter: {freqs: [27, 4200],
                     types: ["highpass", "lowpass"],
@@ -4147,6 +4272,8 @@ Settings.defaults.instrumentPresets = {
         }
     }
 };
+
+
 /**
  * DRAFT DEMO CODING START HERE
  *
@@ -4282,14 +4409,14 @@ Array.prototype.contains = function (needle) {
 
 
 // DEBUG - QUICK TEST MIC
-window.addEventListener("keydown", function () {
-    TONEROLLDEMO.masterRetriever.audioTranscriber.pitchDetector.preseter.applyInstrumentPresets('guitar');
-    TONEROLLDEMO.masterVolume.device.gain.value = 0;
-    TONEROLLDEMO.compositions[TONEROLLDEMO.activeComposition].addChannel('userMic');
-    TONEROLLDEMO.events.startTesting();
-    TONEROLLDEMO.workflowController.setState("MIC_TEST");
-    $("#mic-config-modal").modal('show');
-}, false);
+//window.addEventListener("keydown", function () {
+//    TONEROLLDEMO.masterRetriever.audioTranscriber.pitchDetector.preseter.applyInstrumentPresets('guitar');
+//    TONEROLLDEMO.masterVolume.device.gain.value = 0;
+//    TONEROLLDEMO.compositions[TONEROLLDEMO.activeComposition].addChannel('userMic');
+//    TONEROLLDEMO.events.startTesting();
+//    TONEROLLDEMO.workflowController.setState("MIC_TEST");
+//    $("#mic-config-modal").modal('show');
+//}, false);
 // DEBUG - QUICK CHANGE PITCH COMP AND EQ
 //var pitchEQ = TONEROLLDEMO.masterRetriever.audioTranscriber.pitchDetector.equalizer;
 //var pitchComp = TONEROLLDEMO.masterRetriever.audioTranscriber.pitchDetector.compressor;
