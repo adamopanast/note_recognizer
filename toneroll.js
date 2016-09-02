@@ -2847,17 +2847,17 @@ VisualDevices.initializers.pianorollInitializer = function () {
     _this.pianorollCanvas = document.getElementsByClassName("pianorollCanvas")[0];
     _this.pianorollContext = _this.pianorollCanvas.getContext('2d');
     _this.pianorollCanvas.width = Settings.defaults.global.canvasWidth;
-    _this.pianorollCanvas.height = 1000;
+    _this.pianorollCanvas.height = Settings.defaults.global.beatHeight*100;
     // notes Overlay canvas
     _this.notesOverlayCanvas = document.getElementsByClassName("notesOverlayCanvas")[0];
     _this.notesOverlayContext = _this.notesOverlayCanvas.getContext('2d');
     _this.notesOverlayCanvas.width = Settings.defaults.global.canvasWidth;
-    _this.notesOverlayCanvas.height = 1000;
+    _this.notesOverlayCanvas.height = Settings.defaults.global.beatHeight*100;
     // notes canvas
     _this.notesCanvas = document.getElementsByClassName("notesCanvas")[0];
     _this.notesContext = _this.notesCanvas.getContext('2d');
     _this.notesCanvas.width = 40;
-    _this.notesCanvas.height = 1000;
+    _this.notesCanvas.height = Settings.defaults.global.beatHeight*100;
     // notes canvas
     _this.barsCanvas = document.getElementsByClassName("barsCanvas")[0];
     _this.barsContext = _this.barsCanvas.getContext('2d');
@@ -2878,14 +2878,14 @@ VisualDevices.initializers.pianorollInitializer = function () {
         _this.notesContext.fillStyle = "#a29292";
         _this.notesContext.font = "10px Arial";
         var pianoRollNotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-        var position = 1000 - Settings.defaults.global.beatHeight * 2;
+        var position = Settings.defaults.global.beatHeight*100 - Settings.defaults.global.beatHeight * 2;
         for (var i = 0; i < 8; i++) {
             for (var j = 0; j < 12; j++) {
                 _this.notesContext.fillText(pianoRollNotes[j] + i, 0, position);
                 position -= Settings.defaults.global.beatHeight;
             }
         }
-        for (var k = 20; k < (1000 - Settings.defaults.global.beatHeight); k = k + Settings.defaults.global.beatHeight) {
+        for (var k = 20; k < (Settings.defaults.global.beatHeight*100 - Settings.defaults.global.beatHeight); k = k + Settings.defaults.global.beatHeight) {
             _this.notesContext.lineWidth = 0.5;
             _this.notesContext.strokeStyle = '#efefef';
             _this.notesContext.beginPath();
@@ -3333,7 +3333,7 @@ VisualDevices.drawers.pianorollDrawer = function () {
                 factor = 2;
                 break;
         }
-        return _this.notesOverlayCanvas.height - (1000 - Settings.defaults.global.beatHeight * factor);
+        return _this.notesOverlayCanvas.height - (Settings.defaults.global.beatHeight*100 - Settings.defaults.global.beatHeight * factor);
     };
 };
 
@@ -3347,7 +3347,7 @@ VisualDevices.drawers.overlayDrawer = function () {
     _this.overlayCanvas = OVERLAY;
     _this.overlayContext = _this.overlayCanvas.getContext('2d');
     _this.overlayCanvas.width = Settings.defaults.global.canvasWidth;
-    _this.overlayCanvas.height = 1000;
+    _this.overlayCanvas.height = Settings.defaults.global.beatHeight*100;
     _this.overlayContext.lineWidth = 0.5;
     // time cursor
     _this.moveCursor = function (posX) {
