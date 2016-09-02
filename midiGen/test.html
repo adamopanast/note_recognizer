@@ -1,0 +1,49 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>midigen</title>
+
+<script src="midi.js" type="text/javascript">
+
+
+</script>
+
+<script>
+function midiGen(){
+
+var noteEvents = [];
+["C4", "E4", "G4"].forEach(function(note) {
+    Array.prototype.push.apply(noteEvents, MidiEvent.createNote(note));
+});
+
+// Create a track that contains the events to play the notes above
+var track = new MidiTrack({ events: noteEvents });
+
+// Creates an object that contains the final MIDI track in base64 and some
+// useful methods.
+var song  = MidiWriter({ tracks: [track] });
+
+// Alert the base64 representation of the MIDI file
+//alert(song.b64);
+
+// Play the song
+//song.play();
+
+// Play/save the song (depending of MIDI plugins in the browser). It opens
+// a new window and loads the generated MIDI file with the proper MIME type
+song.save();
+}
+</script>
+
+
+</head>
+
+<body>
+
+<button type="button" onclick="midiGen();">Click Me!</button>
+
+
+
+</body>
+</html>

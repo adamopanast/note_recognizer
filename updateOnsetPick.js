@@ -1,4 +1,6 @@
-//  This file is part of Toneroll.
+//    Toneroll is a real time music transcription tool
+//    Copyright (C) 2015-2016  Markos Fragkopoulos
+//    This file is part of Toneroll.
 //
 //    Toneroll is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
@@ -13,7 +15,11 @@
 //    You should have received a copy of the GNU General Public License
 //    along with Toneroll.  If not, see <http://www.gnu.org/licenses/>.
 //
-//Copyright 2015 Fragkopoulos Markos - exog3n@gmail.com
+//    Toneroll Copyright 2015-2016 Fragkopoulos Markos - exog3n@gmail.com
+//    This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+//    This is free software, and you are welcome to redistribute it
+//    under certain conditions; type `show c' for details.
+
 'use strict';
 
 var self = this;
@@ -136,11 +142,12 @@ self.addEventListener('message', function (e) {
     minNoteDuration = e.data.minNoteDuration;
     // pushed the last normalized value passed on worker
     normalizedInput.push(e.data.normalized);
+    cycle = e.data.currentCycle;
     var prevOnset = onsets[onsets.length - 1] || 0;
     // narrow down the array and sent it for picking
     var onset = onsetDetector.pick(onsetDetector.inputProcessor(normalizedInput, cycle), cycle, prevOnset);
 
-    cycle++;
+
     // return onsets
     self.postMessage(onset);
 }, false);
