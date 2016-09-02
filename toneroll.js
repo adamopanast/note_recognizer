@@ -1399,7 +1399,7 @@ SystemDevices.connectors.cloudSaver = function () {
     _this.process = function (title, file, imgUrl, url) {
         var data = {title: title, file: file, imgUrl: imgUrl, url: url};
         var config = new AWS.Config({
-            accessKeyId: 'AKIAIKHFHUNZPNJPVQRQ', secretAccessKey: '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', region: 'oregon'
+            accessKeyId: '', secretAccessKey: '', region: 'oregon'
         });
         var s3 = new AWS.S3({credentials: config.credentials}, {Bucket: 't0n3r011'});
 
@@ -3016,10 +3016,9 @@ VisualDevices.drawers.pianorollDrawer = function () {
             var threadsFrequencyOffset = (pspc - _this.snapshotThickness / threadRateRelation) / 2;
             var drawable = [];
             for (var i = 0; i < bufferedSnapshots.length; i++)
-                drawable.push({posX: bufferedSnapshots[i].xCanvasPosition + Settings.defaults.global.pianorollDrawOffset - threadsFrequencyOffset, posY: _this.returnNoteHeight(bufferedSnapshots[i].note + bufferedSnapshots[i].octave) + 3, width: _this.snapshotThickness + threadsFrequencyOffset, height: 7});
+                drawable.push({posX: bufferedSnapshots[i].xCanvasPosition + Settings.defaults.global.pianorollDrawOffset - threadsFrequencyOffset, posY: _this.returnNoteHeight(bufferedSnapshots[i].note + bufferedSnapshots[i].octave) + 6, width: _this.snapshotThickness + threadsFrequencyOffset, height: Settings.defaults.global.beatHeight});
             _this.notesOverlayContext.beginPath();
             for (var i = 0; i < bufferedSnapshots.length; i++) {
-
                 _this.notesOverlayContext.fillRect(drawable[i].posX, drawable[i].posY, drawable[i].width, drawable[i].height);
                 _this.notesOverlayContext.stroke();
             }
@@ -3036,212 +3035,305 @@ VisualDevices.drawers.pianorollDrawer = function () {
             _this.notesOverlayContext.fillStyle = color;
             _this.notesOverlayContext.globalAlpha = 0.5;
             var posY = _this.returnNoteHeight(note);
-            _this.notesOverlayContext.fillRect(posX + Settings.defaults.global.pianorollDrawOffset, posY + 3, noteWidth * 0.95, 7); // multiply the noteWidth with 0.95 to avoid 2 notes in serie to appear as one
+            _this.notesOverlayContext.fillRect(posX + Settings.defaults.global.pianorollDrawOffset, posY + 3, noteWidth * 0.95, Settings.defaults.global.beatHeight); // multiply the noteWidth with 0.95 to avoid 2 notes in serie to appear as one
             _this.notesOverlayContext.font = "16px Arial";
             _this.notesOverlayContext.fillText(composedTrack[i].snapshots.length, posX + Settings.defaults.global.pianorollDrawOffset, posY + 3);
             _this.notesOverlayContext.stroke();
         }
     };
     _this.returnNoteHeight = function (note) {
-        var posY = _this.notesOverlayCanvas.height;
         var factor = 0;
         switch (note) {
             case "C0":
                 factor = 97;
+                break;
             case "C#0":
                 factor = 96;
+                break;
             case "D0":
                 factor = 95;
+                break;
             case "D#0":
                 factor = 94;
+                break;
             case "E0":
                 factor = 93;
+                break;
             case "F0":
                 factor = 92;
+                break;
             case "F#0":
                 factor = 91;
+                break;
             case "G0":
                 factor = 90;
+                break;
             case "G#0":
                 factor = 89;
+                break;
             case "A0":
                 factor = 88;
+                break;
             case "A#0":
                 factor = 87;
+                break;
             case "B0":
                 factor = 86;
+                break;
             case "C1":
                 factor = 85;
+                break;
             case "C#1":
                 factor = 84;
+                break;
             case "D1":
                 factor = 83;
+                break;
             case "D#1":
                 factor = 82;
+                break;
             case "E1":
                 factor = 81;
+                break;
             case "F1":
                 factor = 80;
+                break;
             case "F#1":
                 factor = 79;
+                break;
             case "G1":
                 factor = 78;
+                break;
             case "G#1":
                 factor = 77;
+                break;
             case "A1":
                 factor = 76;
+                break;
             case "A#1":
                 factor = 75;
+                break;
             case "B1":
                 factor = 74;
+                break;
             case "C2":
                 factor = 73;
+                break;
             case "C#2":
                 factor = 72;
+                break;
             case "D2":
                 factor = 71;
+                break;
             case "D#2":
                 factor = 70;
+                break;
             case "E2":
                 factor = 69;
+                break;
             case "F2":
                 factor = 68;
+                break;
             case "F#2":
                 factor = 67;
+                break;
             case "G2":
                 factor = 66;
+                break;
             case "G#2":
                 factor = 65;
+                break;
             case "A2":
                 factor = 64;
+                break;
             case "A#2":
                 factor = 63;
+                break;
             case "B2":
                 factor = 62;
+                break;
             case "C3":
                 factor = 61;
+                break;
             case "C#3":
                 factor = 60;
+                break;
             case "D3":
                 factor = 59;
+                break;
             case "D#3":
                 factor = 58;
+                break;
             case "E3":
                 factor = 57;
+                break;
             case "F3":
                 factor = 56;
+                break;
             case "F#3":
                 factor = 55;
+                break;
             case "G3":
                 factor = 54;
+                break;
             case "G#3":
                 factor = 53;
+                break;
             case "A3":
                 factor = 52;
+                break;
             case "A#3":
                 factor = 51;
+                break;
             case "B3":
                 factor = 50;
+                break;
             case "C4":
                 factor = 49;
+                break;
             case "C#4":
                 factor = 48;
+                break;
             case "D4":
                 factor = 47;
+                break;
             case "D#4":
                 factor = 46;
+                break;
             case "E4":
                 factor = 45;
+                break;
             case "F4":
                 factor = 44;
+                break;
             case "F#4":
                 factor = 43;
+                break;
             case "G4":
                 factor = 42;
+                break;
             case "G#4":
                 factor = 41;
+                break;
             case "A4":
                 factor = 40;
+                break;
             case "A#4":
                 factor = 39;
+                break;
             case "B4":
                 factor = 38;
+                break;
             case "C5":
                 factor = 37;
+                break;
             case "C#5":
                 factor = 36;
+                break;
             case "D5":
                 factor = 35;
+                break;
             case "D#5":
                 factor = 34;
+                break;
             case "E5":
                 factor = 33;
+                break;
             case "F5":
                 factor = 32;
+                break;
             case "F#5":
                 factor = 31;
+                break;
             case "G5":
                 factor = 30;
+                break;
             case "G#5":
                 factor = 29;
+                break;
             case "A5":
                 factor = 28;
+                break;
             case "A#5":
                 factor = 27;
+                break;
             case "B5":
                 factor = 26;
+                break;
             case "C6":
                 factor = 25;
+                break;
             case "C#6":
                 factor = 24;
+                break;
             case "D6":
                 factor = 23;
+                break;
             case "D#6":
                 factor = 22;
+                break;
             case "E6":
                 factor = 21;
+                break;
             case "F6":
                 factor = 20;
+                break;
             case "F#6":
                 factor = 19;
+                break;
             case "G6":
                 factor = 18;
+                break;
             case "G#6":
                 factor = 17;
+                break;
             case "A6":
                 factor = 16;
+                break;
             case "A#6":
                 factor = 15;
+                break;
             case "B6":
                 factor = 14;
+                break;
             case "C7":
                 factor = 13;
+                break;
             case "C#7":
                 factor = 12;
+                break;
             case "D7":
                 factor = 11;
+                break;
             case "D#7":
                 factor = 10;
+                break;
             case "E7":
                 factor = 9;
+                break;
             case "F7":
                 factor = 8;
+                break;
             case "F#7":
                 factor = 7;
+                break;
             case "G7":
                 factor = 6;
+                break;
             case "G#7":
                 factor = 5;
+                break;
             case "A7":
                 factor = 4;
+                break;
             case "A#7":
                 factor = 3;
+                break;
             case "B7":
                 factor = 2;
-               
+                break;
         }
-         return posY - 1000 - Settings.defaults.global.beatHeight * factor;
-
+        return _this.notesOverlayCanvas.height - (1000 - Settings.defaults.global.beatHeight * factor);
     };
 };
 
