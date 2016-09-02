@@ -1122,7 +1122,7 @@ AudioDevices.utilities.dynamicCompressor = function () {
         _this.device.threshold.value = preset.threshold;
         _this.device.knee.value = preset.knee;
         _this.device.ratio.value = preset.ratio;
-        _this.device.reduction.value = preset.reduction;
+//        _this.device.reduction.value = preset.reduction;
         _this.device.attack.value = preset.attack;
         _this.device.release.value = preset.release;
     };
@@ -1399,10 +1399,10 @@ SystemDevices.connectors.cloudSaver = function () {
     _this.process = function (title, file, imgUrl, url) {
         var data = {title: title, file: file, imgUrl: imgUrl, url: url};
         var config = new AWS.Config({
-           
+            accessKeyId: 'AKIAIKHFHUNZPNJPVQRQ', secretAccessKey: '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', region: 'oregon'
         });
         var s3 = new AWS.S3({credentials: config.credentials}, {Bucket: 't0n3r011'});
-        
+
         var filename = data.title + '_' + String(Date.now());
         var params = {
             Bucket: 't0n3r011', /* required */
@@ -2571,7 +2571,7 @@ SystemDevices.detectors.eventDetector = function () {
     _this.onsetCompressorNode.threshold.value = -20;
     _this.onsetCompressorNode.knee.value = 6;
     _this.onsetCompressorNode.ratio.value = 6;
-    _this.onsetCompressorNode.reduction.value = 10;
+//    _this.onsetCompressorNode.reduction.value = 10;
     _this.onsetCompressorNode.attack.value = 40;
     _this.onsetCompressorNode.release.value = 70;
     _this.onsetAnalyserNode = audioContext.createAnalyser();
@@ -2878,14 +2878,14 @@ VisualDevices.initializers.pianorollInitializer = function () {
         _this.notesContext.fillStyle = "#a29292";
         _this.notesContext.font = "10px Arial";
         var pianoRollNotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-        var position = 980;
+        var position = 1000 - Settings.defaults.global.beatHeight * 2;
         for (var i = 0; i < 8; i++) {
             for (var j = 0; j < 12; j++) {
                 _this.notesContext.fillText(pianoRollNotes[j] + i, 0, position);
-                position -= 10;
+                position -= Settings.defaults.global.beatHeight;
             }
         }
-        for (var k = 20; k < 990; k = k + 10) {
+        for (var k = 20; k < (1000 - Settings.defaults.global.beatHeight); k = k + Settings.defaults.global.beatHeight) {
             _this.notesContext.lineWidth = 0.5;
             _this.notesContext.strokeStyle = '#efefef';
             _this.notesContext.beginPath();
@@ -3044,200 +3044,204 @@ VisualDevices.drawers.pianorollDrawer = function () {
     };
     _this.returnNoteHeight = function (note) {
         var posY = _this.notesOverlayCanvas.height;
+        var factor = 0;
         switch (note) {
             case "C0":
-                return posY - 20;
+                factor = 97;
             case "C#0":
-                return posY - 30;
+                factor = 96;
             case "D0":
-                return posY - 40;
+                factor = 95;
             case "D#0":
-                return posY - 50;
+                factor = 94;
             case "E0":
-                return posY - 60;
+                factor = 93;
             case "F0":
-                return posY - 70;
+                factor = 92;
             case "F#0":
-                return posY - 80;
+                factor = 91;
             case "G0":
-                return posY - 90;
+                factor = 90;
             case "G#0":
-                return posY - 100;
+                factor = 89;
             case "A0":
-                return posY - 110;
+                factor = 88;
             case "A#0":
-                return posY - 120;
+                factor = 87;
             case "B0":
-                return posY - 130;
+                factor = 86;
             case "C1":
-                return posY - 140;
+                factor = 85;
             case "C#1":
-                return posY - 150;
+                factor = 84;
             case "D1":
-                return posY - 160;
+                factor = 83;
             case "D#1":
-                return posY - 170;
+                factor = 82;
             case "E1":
-                return posY - 180;
+                factor = 81;
             case "F1":
-                return posY - 190;
+                factor = 80;
             case "F#1":
-                return posY - 200;
+                factor = 79;
             case "G1":
-                return posY - 210;
+                factor = 78;
             case "G#1":
-                return posY - 220;
+                factor = 77;
             case "A1":
-                return posY - 230;
+                factor = 76;
             case "A#1":
-                return posY - 240;
+                factor = 75;
             case "B1":
-                return posY - 250;
+                factor = 74;
             case "C2":
-                return posY - 260;
+                factor = 73;
             case "C#2":
-                return posY - 270;
+                factor = 72;
             case "D2":
-                return posY - 280;
+                factor = 71;
             case "D#2":
-                return posY - 290;
+                factor = 70;
             case "E2":
-                return posY - 300;
+                factor = 69;
             case "F2":
-                return posY - 310;
+                factor = 68;
             case "F#2":
-                return posY - 320;
+                factor = 67;
             case "G2":
-                return posY - 340;
+                factor = 66;
             case "G#2":
-                return posY - 350;
+                factor = 65;
             case "A2":
-                return posY - 360;
+                factor = 64;
             case "A#2":
-                return posY - 370;
+                factor = 63;
             case "B2":
-                return posY - 380;
+                factor = 62;
             case "C3":
-                return posY - 390;
+                factor = 61;
             case "C#3":
-                return posY - 400;
+                factor = 60;
             case "D3":
-                return posY - 410;
+                factor = 59;
             case "D#3":
-                return posY - 420;
+                factor = 58;
             case "E3":
-                return posY - 430;
+                factor = 57;
             case "F3":
-                return posY - 440;
+                factor = 56;
             case "F#3":
-                return posY - 450;
+                factor = 55;
             case "G3":
-                return posY - 460;
+                factor = 54;
             case "G#3":
-                return posY - 470;
+                factor = 53;
             case "A3":
-                return posY - 480;
+                factor = 52;
             case "A#3":
-                return posY - 490;
+                factor = 51;
             case "B3":
-                return posY - 500;
+                factor = 50;
             case "C4":
-                return posY - 510;
+                factor = 49;
             case "C#4":
-                return posY - 520;
+                factor = 48;
             case "D4":
-                return posY - 530;
+                factor = 47;
             case "D#4":
-                return posY - 540;
+                factor = 46;
             case "E4":
-                return posY - 550;
+                factor = 45;
             case "F4":
-                return posY - 560;
+                factor = 44;
             case "F#4":
-                return posY - 570;
+                factor = 43;
             case "G4":
-                return posY - 580;
+                factor = 42;
             case "G#4":
-                return posY - 590;
+                factor = 41;
             case "A4":
-                return posY - 600;
+                factor = 40;
             case "A#4":
-                return posY - 610;
+                factor = 39;
             case "B4":
-                return posY - 620;
+                factor = 38;
             case "C5":
-                return posY - 630;
+                factor = 37;
             case "C#5":
-                return posY - 640;
+                factor = 36;
             case "D5":
-                return posY - 650;
+                factor = 35;
             case "D#5":
-                return posY - 660;
+                factor = 34;
             case "E5":
-                return posY - 670;
+                factor = 33;
             case "F5":
-                return posY - 680;
+                factor = 32;
             case "F#5":
-                return posY - 690;
+                factor = 31;
             case "G5":
-                return posY - 700;
+                factor = 30;
             case "G#5":
-                return posY - 710;
+                factor = 29;
             case "A5":
-                return posY - 720;
+                factor = 28;
             case "A#5":
-                return posY - 730;
+                factor = 27;
             case "B5":
-                return posY - 740;
+                factor = 26;
             case "C6":
-                return posY - 750;
+                factor = 25;
             case "C#6":
-                return posY - 760;
+                factor = 24;
             case "D6":
-                return posY - 770;
+                factor = 23;
             case "D#6":
-                return posY - 780;
+                factor = 22;
             case "E6":
-                return posY - 790;
+                factor = 21;
             case "F6":
-                return posY - 800;
+                factor = 20;
             case "F#6":
-                return posY - 810;
+                factor = 19;
             case "G6":
-                return posY - 820;
+                factor = 18;
             case "G#6":
-                return posY - 830;
+                factor = 17;
             case "A6":
-                return posY - 840;
+                factor = 16;
             case "A#6":
-                return posY - 850;
+                factor = 15;
             case "B6":
-                return posY - 860;
+                factor = 14;
             case "C7":
-                return posY - 870;
+                factor = 13;
             case "C#7":
-                return posY - 880;
+                factor = 12;
             case "D7":
-                return posY - 890;
+                factor = 11;
             case "D#7":
-                return posY - 900;
+                factor = 10;
             case "E7":
-                return posY - 910;
+                factor = 9;
             case "F7":
-                return posY - 920;
+                factor = 8;
             case "F#7":
-                return posY - 930;
+                factor = 7;
             case "G7":
-                return posY - 940;
+                factor = 6;
             case "G#7":
-                return posY - 950;
+                factor = 5;
             case "A7":
-                return posY - 960;
+                factor = 4;
             case "A#7":
-                return posY - 970;
+                factor = 3;
             case "B7":
-                return posY - 980;
+                factor = 2;
+               
         }
+         return posY - 1000 - Settings.defaults.global.beatHeight * factor;
+
     };
 };
 
@@ -3836,7 +3840,7 @@ UI.reactions.getHelp = function () {
         function PianoRollPos(notesOverlayCanvasHeight) {
             var _this = this;
             _this.bar;
-            _this.bit;
+            _this.beat;
             _this.note;
             _this.octave;
             _this.notesOverlayCanvasHeight = notesOverlayCanvasHeight;
@@ -3844,7 +3848,7 @@ UI.reactions.getHelp = function () {
                 var tmpX = (xCord / 80) + 1;
                 var offset = 20;
                 _this.bar = parseInt(tmpX);
-                _this.bit = parseInt((parseInt((tmpX - _this.bar) * 10)) / 2);
+                _this.beat = parseInt((parseInt((tmpX - _this.bar) * 10)) / 2);
                 var tmpY = (((_this.notesOverlayCanvasHeight - offset) - (yCord)) / 12);
                 _this.octave = parseInt(tmpY / 10);
                 var tmpNote = parseInt((tmpY - _this.octave * 10) * 1.2);
@@ -3875,7 +3879,7 @@ UI.reactions.getHelp = function () {
             };
             _this.copyFrom = function (PnPos) {
                 _this.bar = PnPos.bar;
-                _this.bit = PnPos.bit;
+                _this.beat = PnPos.bit;
                 _this.note = PnPos.note;
                 _this.octave = PnPos.octave;
             };
@@ -3885,7 +3889,7 @@ UI.reactions.getHelp = function () {
                 var flag = true;
                 if (_this.bar !== PnPos.bar)
                     flag = false;
-                if (_this.bit !== PnPos.bit)
+                if (_this.beat !== PnPos.bit)
                     flag = false;
                 if (_this.note !== PnPos.note)
                     flag = false;
@@ -3894,7 +3898,7 @@ UI.reactions.getHelp = function () {
                 return flag;
             };
             _this.toString = function () {
-                return _this.bar + "." + _this.bit + " " + _this.note + _this.octave;
+                return _this.bar + "." + _this.beat + " " + _this.note + _this.octave;
             };
         }
         ;
@@ -4002,6 +4006,7 @@ Settings.defaults.global = {tempo: 120, // {BPM}
         else if (window.innerWidth < 480)
             return (this.tempo / 60) * (window.innerWidth / 20);
     }, // based on user device - default was (BPS = BPM / 60) * 20
+    beatHeight: 14,
     drawableNotesColor: '#e24f3d',
     correctedNotesColor: '#36A78E',
     pianorollDrawOffset: 0,
