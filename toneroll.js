@@ -21,6 +21,7 @@
 //    under certain conditions; type `show c' for details.
 
 'use strict';
+
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 var audioContext = new this.AudioContext();
 /**
@@ -137,27 +138,65 @@ function Workspace() {
     };
     // local namespace to keep system trigger events
     _this.events = {};
+
+    /**
+     * selectInstrument() reactions on instrument input
+     *
+     * @param {String} value is the instrument name
+     * 
+     */
     _this.events.selectInstrument = function (value) {
         _this.masterRetriever.audioTranscriber.pitchDetector.preseter.applyInstrumentPresets(value);
     };
+    /**
+     * selectMic() reactions for microphone selection
+     * 
+     */
     _this.events.selectMic = function () {
         _this.masterVolume.device.gain.value = 0;
         _this.compositions[_this.activeComposition].addChannel('userMic');
     };
+    /**
+     * selectSample() reactions for sample selection
+     * 
+     * @param {input} e is the user input object
+     */
     _this.events.selectSample = function (e) {
         THEFILE = e.target.files[0];
         _this.compositions[_this.activeComposition].addChannel('userSample');
     };
+    /**
+     * changePrecision() change the system precision (system thread rate)
+     *
+     * @param {int} value is the system thred rate
+     * 
+     */
     _this.events.changePrecision = function (value) {
         Settings.setters.setSystemThreadRate(value);
         _this.masterRetriever.audioTranscriber.thread.rate = 1000 / Settings.getters.getSystemThreadRate();
     };
+    /**
+     * changeAutocorrect() switch autocorrection on/off
+     *
+     * @param {boolean} state
+     * 
+     */
     _this.events.changeAutocorrect = function (state) {
         _this.masterRetriever.audioTranscriber.thread.autocorrection = state;
     };
+    /**
+     * changeGain() change the input gain of the system
+     *
+     * @param {int} value is DB
+     * 
+     */
     _this.events.changeGain = function (value) {
         _this.masterRetriever.volumeAnalyzer.autoGainControler.maximize(value);
     };
+    /**
+     * startTranscription() reactions when start transcribing audio
+     * 
+     */
     _this.events.startTranscription = function () {
         if (_this.workflowController.state === 'MIC_READY') {
             var activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
@@ -166,11 +205,15 @@ function Workspace() {
         _this.masterRetriever.audioRecorder.rec();
         _this.tempoController.metronome.start();
     };
+    /**
+     * stopTranscription() reactions when stop transcribing audio
+     * 
+     */
     _this.events.stopTranscription = function () {
         // stop all system proccessing and get the trackSnapshots array
         var trackSnapshots = _this.masterRetriever.audioTranscriber.thread.stop();
-        _this.workflowController.setState("LOADING");
         var composePromise = new Promise(function (resolve, reject) {
+            _this.workflowController.setState("LOADING");
             // after stop correct and create note objects for all the snapshots
             _this.masterRetriever.audioTranscriber.composer.finalCut(trackSnapshots);
             // the performance time is related to the number of the snapshots
@@ -187,7 +230,6 @@ function Workspace() {
             }
         });
         activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
-//FINDER
         composePromise.then(function (result) {
             // clear canvas and redraw composed notes
             if (_this.workflowController.state !== 'REFRESHED') {
@@ -197,8 +239,9 @@ function Workspace() {
                 activeChannel.loadSampler(activeChannel.track.music);
                 // promise to give time for loading
                 var samplerPromise = new Promise(function (resolve, reject) {
-                    if (activeChannel.sampler.checker.checkIfLoaded())
+                    if (activeChannel.sampler.checker.checkIfLoaded()) {
                         resolve();
+                    }
                     else
                         var loop = setInterval(function () {
                             if (activeChannel.sampler.checker.checkIfLoaded()) {
@@ -213,6 +256,7 @@ function Workspace() {
                     // load synth
                     activeChannel.loadSynth(activeChannel.track.music);
                     _this.masterVolume.device.gain.value = 1;
+                    _this.workflowController.setState("LOADED");
                     _this.workflowController.setState("PLAYBACK_READY");
                 });
             }
@@ -255,30 +299,54 @@ function Workspace() {
         });
         Settings.states.TRANSCRIBING = false;
     };
+    /**
+     * startTesting() trigger actions for tuning and volume check
+     * 
+     */
     _this.events.startTesting = function () {
         _this.masterRetriever.audioTuner.thread.start();
     };
+    /**
+     * stopTesting() end actions for tuning and volume check
+     * 
+     */
     _this.events.stopTesting = function () {
         _this.masterRetriever.audioTuner.thread.stop();
     };
+    /**
+     * originalPlayback() trigger playback of recorded audio track
+     * 
+     */
     _this.events.originalPlayback = function () {
         activeChannel.player.device.start(0);
         _this.visualThread.startLoop();
         Settings.states.PLAY = true;
         Settings.states.ORIGINALPLAY = true;
     };
+    /**
+     * synthPlayback() trigger playback of transcribed audio track with synth
+     * 
+     */
     _this.events.synthPlayback = function () {
         activeChannel.synth.start();
         _this.visualThread.startLoop();
         Settings.states.PLAY = true;
         Settings.states.SYNTHPLAY = true;
     };
+    /**
+     * samplerPlayback() trigger playback of transcribed audio track with sampler
+     * 
+     */
     _this.events.samplerPlayback = function () {
         activeChannel.sampler.start();
         _this.visualThread.startLoop();
         Settings.states.PLAY = true;
         Settings.states.SAMPLERPLAY = true;
     };
+    /**
+     * stopPlayback() stop playback of transcribed or recorded audio track
+     * 
+     */
     _this.events.stopPlayback = function () {
         var activeChannel = _this.compositions[_this.activeComposition].channels[_this.getActiveChannel()];
         if (Settings.states.PLAY) {
@@ -302,10 +370,20 @@ function Workspace() {
             _this.visualThread = new SystemDevices.threads.visualThread(_this.synchronizer);
         }
     };
+    /**
+     * changeTempo() change global tempo value
+     * 
+     * @param {int} bpm is the new tempo
+     */
     _this.events.changeTempo = function (bpm) {
         Settings.setters.setTempo(bpm);
         _this.tempoController.metronome.changeTempo(bpm);
     };
+    /**
+     * metronomeActivate() switch  metronome on/off
+     * 
+     * @param {boolean} state
+     */
     _this.events.metronomeActivate = function (state) {
         Settings.defaults.global.metronomeActive = state;
         if (state)
@@ -313,33 +391,34 @@ function Workspace() {
         else
             _this.tempoController.metronome.output.disconnect();
     };
+    /**
+     * tap() calculate tempo through user tap
+     * 
+     */
     _this.events.tap = function () {
         _this.tempoController.tap.update();
         var bpm = _this.tempoController.tap.getBPM();
         Settings.setters.setTempo(bpm);
     };
-    _this.events.autoTempo = function (state) {
-        Settings.defaults.global.autoRecognizeTempo = state;
-        if (state) {
-            document.getElementById("tempo").disabled = true;
-            document.getElementById("tap").disabled = true;
-        }
-        else {
-            document.getElementById("tempo").disabled = false;
-            document.getElementById("tap").disabled = false;
-        }
-    };
+    /**
+     * submitToGrid() submit the file created from audio track recording to cloud
+     * 
+     * @param {String} title is a title that user inserts for the audio track 
+     * @param {String} imgUrl is a url for an image that user inserts for the audio track 
+     * @param {String} url is a url for linking to that user inserts for the audio track 
+     * 
+     */
     _this.events.submitToGrid = function (title, imgUrl, url) {
         _this.masterRetriever.audioRecorder.submitRecording(title, imgUrl, url);
     };
-// create composition
+    // create composition
     _this.addComposition();
-// initialize listeners
+    // initialize listeners
     Events.system.addListeners(_this);
-// initialize pianoroll
+    // initialize pianoroll
     _this.pianoroll = new VisualDevices.initializers.pianorollInitializer();
     PIANOROLL = _this.pianoroll.draw();
-// initialize UI properties
+    // initialize UI properties
     UI.initialize(_this);
 }
 
@@ -392,8 +471,6 @@ function Composition(index) {
         _this.channels[_this.channels.length - 1].output.connect(_this.input);
         return _this.channels.length;
     };
-    // not used in demo
-//    _this.addChannel(Settings.defaults.channel.channelType);
 }
 
 /**
@@ -471,15 +548,32 @@ function CompositionChannel(index, compositionIndex, channelType) {
     // cannot work here because of the mediaStreamSource success callback - only there we can connect
     // _this.source.output.connect(_this.gain.input);
 
+    /**
+     * loadPlayer() create a buffer source player
+     *
+     * @param {AudioBuffer} buffer is the AudioBuffer of the recorded audio
+     */
     _this.loadPlayer = function (buffer) {
         _this.player = _this.createSourceNode('systemBuffer', _this.gain.input, buffer);
-    }
+    };
+    /**
+     * loadSynth() create a synth device
+     *
+     * @param {Array} notesArray is an array with the transcribed notes
+     * 
+     */
     _this.loadSynth = function (notesArray) {
         _this.synth = _this.createSourceNode('systemSynth', _this.gain.input, notesArray);
-    }
+    };
+    /**
+     * loadSampler() create a sampler device
+     *
+     * @param {Array} notesArray is an array with the transcribed notes
+     * 
+     */
     _this.loadSampler = function (notesArray) {
         _this.sampler = _this.createSourceNode('systemSampler', _this.gain.input, notesArray);
-    }
+    };
     _this.gain.output.connect(_this.bus.input);
     // make gain node the output of the channel
     _this.output = _this.gain.output;
@@ -2660,13 +2754,18 @@ SystemDevices.controllers.tempoController = function () {
 SystemDevices.controllers.workflowController = function () {
     var _this = this;
     _this.state = null;
+    _this.loader = new UI.reactions.loader();
     _this.setState = function (state) {
         if (state === 'DEMO_ENDED') {
             $('#demo-ended-modal').modal('show');
             _this.state = 'DEMO_ENDED';
         } else if (state === 'REFRESHED') {
             _this.state = 'REFRESHED';
-        } else if (_this.state !== 'DEMO_ENDED' && _this.state !== 'REFRESHED') {
+        } else if (state === 'LOADING') {
+            _this.loader.loading();
+        } else if (state === 'LOADED') {
+            _this.loader.loaded();
+        } else {
             _this.state = state;
             _this.printUserMessage(state);
         }
@@ -2692,12 +2791,6 @@ SystemDevices.controllers.workflowController = function () {
             case "NOT_READY":
             {
                 message = Settings.messages.NOT_READY;
-                classType = 'alert-warning';
-                break;
-            }
-            case "LOADING":
-            {
-                message = Settings.messages.LOADING;
                 classType = 'alert-warning';
                 break;
             }
@@ -2847,17 +2940,17 @@ VisualDevices.initializers.pianorollInitializer = function () {
     _this.pianorollCanvas = document.getElementsByClassName("pianorollCanvas")[0];
     _this.pianorollContext = _this.pianorollCanvas.getContext('2d');
     _this.pianorollCanvas.width = Settings.defaults.global.canvasWidth;
-    _this.pianorollCanvas.height = Settings.defaults.global.beatHeight*100;
+    _this.pianorollCanvas.height = Settings.defaults.global.beatHeight * 100;
     // notes Overlay canvas
     _this.notesOverlayCanvas = document.getElementsByClassName("notesOverlayCanvas")[0];
     _this.notesOverlayContext = _this.notesOverlayCanvas.getContext('2d');
     _this.notesOverlayCanvas.width = Settings.defaults.global.canvasWidth;
-    _this.notesOverlayCanvas.height = Settings.defaults.global.beatHeight*100;
+    _this.notesOverlayCanvas.height = Settings.defaults.global.beatHeight * 100;
     // notes canvas
     _this.notesCanvas = document.getElementsByClassName("notesCanvas")[0];
     _this.notesContext = _this.notesCanvas.getContext('2d');
     _this.notesCanvas.width = 40;
-    _this.notesCanvas.height = Settings.defaults.global.beatHeight*100;
+    _this.notesCanvas.height = Settings.defaults.global.beatHeight * 100;
     // notes canvas
     _this.barsCanvas = document.getElementsByClassName("barsCanvas")[0];
     _this.barsContext = _this.barsCanvas.getContext('2d');
@@ -2878,14 +2971,14 @@ VisualDevices.initializers.pianorollInitializer = function () {
         _this.notesContext.fillStyle = "#a29292";
         _this.notesContext.font = "10px Arial";
         var pianoRollNotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-        var position = Settings.defaults.global.beatHeight*100 - Settings.defaults.global.beatHeight * 2;
+        var position = Settings.defaults.global.beatHeight * 100 - Settings.defaults.global.beatHeight * 2;
         for (var i = 0; i < 8; i++) {
             for (var j = 0; j < 12; j++) {
                 _this.notesContext.fillText(pianoRollNotes[j] + i, 0, position);
                 position -= Settings.defaults.global.beatHeight;
             }
         }
-        for (var k = 20; k < (Settings.defaults.global.beatHeight*100 - Settings.defaults.global.beatHeight); k = k + Settings.defaults.global.beatHeight) {
+        for (var k = 20; k < (Settings.defaults.global.beatHeight * 100 - Settings.defaults.global.beatHeight); k = k + Settings.defaults.global.beatHeight) {
             _this.notesContext.lineWidth = 0.5;
             _this.notesContext.strokeStyle = '#efefef';
             _this.notesContext.beginPath();
@@ -3035,7 +3128,7 @@ VisualDevices.drawers.pianorollDrawer = function () {
             _this.notesOverlayContext.fillStyle = color;
             _this.notesOverlayContext.globalAlpha = 0.5;
             var posY = _this.returnNoteHeight(note);
-            _this.notesOverlayContext.fillRect(posX + Settings.defaults.global.pianorollDrawOffset, posY + 3, noteWidth * 0.95, Settings.defaults.global.beatHeight); // multiply the noteWidth with 0.95 to avoid 2 notes in serie to appear as one
+            _this.notesOverlayContext.fillRect(posX + Settings.defaults.global.pianorollDrawOffset, posY + 6, noteWidth * 0.95, Settings.defaults.global.beatHeight); // multiply the noteWidth with 0.95 to avoid 2 notes in serie to appear as one
             _this.notesOverlayContext.font = "16px Arial";
             _this.notesOverlayContext.fillText(composedTrack[i].snapshots.length, posX + Settings.defaults.global.pianorollDrawOffset, posY + 3);
             _this.notesOverlayContext.stroke();
@@ -3333,7 +3426,7 @@ VisualDevices.drawers.pianorollDrawer = function () {
                 factor = 2;
                 break;
         }
-        return _this.notesOverlayCanvas.height - (Settings.defaults.global.beatHeight*100 - Settings.defaults.global.beatHeight * factor);
+        return _this.notesOverlayCanvas.height - (Settings.defaults.global.beatHeight * 100 - Settings.defaults.global.beatHeight * factor);
     };
 };
 
@@ -3347,7 +3440,7 @@ VisualDevices.drawers.overlayDrawer = function () {
     _this.overlayCanvas = OVERLAY;
     _this.overlayContext = _this.overlayCanvas.getContext('2d');
     _this.overlayCanvas.width = Settings.defaults.global.canvasWidth;
-    _this.overlayCanvas.height = Settings.defaults.global.beatHeight*100;
+    _this.overlayCanvas.height = Settings.defaults.global.beatHeight * 100;
     _this.overlayContext.lineWidth = 0.5;
     // time cursor
     _this.moveCursor = function (posX) {
@@ -3431,17 +3524,78 @@ VisualDevices.indicators.momentaryOutput = function () {
 };
 
 /**
+ * tunerInitializer() draw the tuner device
+ *
+ */
+VisualDevices.initializers.tunerInitializer = function () {
+    var _this = this;
+    // tuner canvas
+    _this.tunerCanvas = document.getElementsByClassName("tunerCanvas")[0];
+    _this.tunerContext = _this.tunerCanvas.getContext('2d');
+    _this.tunerCanvas.width = 260;
+    _this.tunerCanvas.height = 100;
+    _this.tunerContext.fillStyle = "#a29292";
+    _this.tunerContext.lineWidth = 0.5;
+    _this.tunerOverlayCanvas = document.getElementsByClassName("tunerOverlayCanvas")[0];
+    _this.tunerOverlayContext = _this.tunerOverlayCanvas.getContext('2d');
+    _this.tunerOverlayCanvas.width = 260;
+    _this.tunerOverlayCanvas.height = 100;
+    function drawCents(posX, point) {
+        _this.tunerContext.fillStyle = "#a29292";
+        _this.tunerContext.font = "10px Arial";
+        if (point < 50)
+            _this.tunerContext.fillText('-' + Math.abs(point - 50), posX, 32);
+        else
+            _this.tunerContext.fillText('+' + Math.abs(point - 50), posX, 32);
+    }
+    _this.drawLines = function () {
+        var startingY = 0;
+        var posX = 0;
+        var offsetX = 8;
+        for (var point = 0; point <= 100; point += 2) {
+            if (point === 0 || point === 20 || point === 40 || point === 60 || point === 80 || point === 100) {
+                startingY = 0;
+                drawCents(posX, point);
+            } else if (point === 10 || point === 30 || point === 70 || point === 90) {
+                startingY = 5;
+            } else if (point === 46) {
+                posX += 48;
+                point = 56;
+            } else {
+                startingY = 10;
+            }
+            _this.tunerContext.beginPath();
+            _this.tunerContext.moveTo(posX + offsetX, startingY);
+            _this.tunerContext.lineTo(posX + offsetX, 20);
+            _this.tunerContext.stroke();
+            posX += 4;
+        }
+    };
+};
+
+/**
  * tunerOutput() indicate the standalone tuner details
  *
  */
 VisualDevices.indicators.tunerOutput = function () {
     var _this = this;
+    _this.initializer = new VisualDevices.initializers.tunerInitializer();
+    _this.tunerContext = _this.initializer.tunerContext;
+    _this.tunerOverlayContext = _this.initializer.tunerOverlayContext;
     _this.detector = document.getElementById("tunerDetector");
     _this.pitch = document.getElementById("tunerPitch");
     _this.note = document.getElementById("tunerNote");
     _this.detune = document.getElementById("tunerDetune");
     _this.detuneAmount = document.getElementById("tunerDetune_amt");
+    _this.initializer.drawLines();
     _this.indicate = function (pitch, note, octave, detune) {
+        _this.tunerContext.clearRect(102, 0, 48, 24);
+        _this.tunerOverlayContext.clearRect(0, 0, 260, 100);
+        _this.tunerContext.fillStyle = "#a29292";
+        _this.tunerContext.font = "22px Arial";
+        _this.tunerContext.textAlign = "center";
+        _this.tunerOverlayContext.fillStyle = "red";
+        _this.tunerOverlayContext.lineWidth = 1;
         if (pitch === -1 || pitch === 11025) {
             _this.detector.className = "vague";
             _this.pitch.innerText = "--";
@@ -3452,6 +3606,11 @@ VisualDevices.indicators.tunerOutput = function () {
             _this.detector.className = "confident";
             _this.pitch.innerText = Math.round(pitch);
             _this.note.innerHTML = note + octave;
+            if (detune > -4 && detune < 4)
+                _this.tunerContext.fillStyle = 'green';
+            else
+                _this.tunerContext.fillStyle = 'yellow';
+            _this.tunerContext.fillText(note + octave, 124, 22);
             if (detune === 0) {
                 _this.detune.className = "";
                 _this.detuneAmount.innerHTML = "--";
@@ -3462,6 +3621,16 @@ VisualDevices.indicators.tunerOutput = function () {
                     _this.detune.className = "sharp";
                 _this.detuneAmount.innerHTML = Math.abs(detune);
             }
+            _this.tunerOverlayContext.beginPath();
+            if (detune < -4) {
+                _this.tunerOverlayContext.moveTo((detune + 50) * 2 + 8, 0);
+                _this.tunerOverlayContext.lineTo((detune + 50) * 2 + 8, 20);
+            }
+            else if (detune > 4) {
+                _this.tunerOverlayContext.moveTo((detune + 50) * 2 + 36, 0);
+                _this.tunerOverlayContext.lineTo((detune + 50) * 2 + 36, 20);
+            }
+            _this.tunerOverlayContext.stroke();
         }
     };
 };
@@ -3700,7 +3869,6 @@ Events.system.addListeners = function (workspace) {
     var tempo = document.getElementById("tempo");
     var metronomeActivate = document.getElementById("metronomeActivate");
     var tap = document.getElementById("tap");
-    var autoTempo = document.getElementById("autoTempo");
     var submitToGrid = document.getElementById("submitToGrid");
     // add listeners to elements
     selectInstrument.addEventListener("change", function () {
@@ -3802,9 +3970,6 @@ Events.system.addListeners = function (workspace) {
     });
     tap.addEventListener("click", function () {
         workspace.events.tap();
-    });
-    autoTempo.addEventListener('change', function () {
-        workspace.events.autoTempo($(autoTempo).is(':checked'));
     });
     submitToGrid.addEventListener("click", function () {
         var title = $("#gridTitle").val();
@@ -4034,6 +4199,22 @@ UI.reactions.buttons = function () {
 };
 
 /**
+ * loading() show the loading icon
+ *
+ */
+UI.reactions.loader = function () {
+    var _this = this;
+    _this.loading = function () {
+        $('#loadingOverlay').show();
+        $('#loadingSpinner').show();
+    };
+    _this.loaded = function () {
+        $('#loadingOverlay').hide();
+        $('#loadingSpinner').hide();
+    };
+};
+
+/**
  * reset() reset the UI elements to initial condition
  *
  */
@@ -4137,7 +4318,6 @@ Settings.states = {
 Settings.messages = {MIC_READY: "Microphone initialized! You can now start transcribing audio input by clicking REC!",
     SAMPLE_READY: "File loaded! You can now start transcribing audio input by clicking REC!",
     NOT_READY: "NOT_READY",
-    LOADING: "Please wait",
     PLAYBACK_READY: "Transcription completed! You can now playback your composition by clicking PLAY!",
     RECOGNIZING_BPM: "Please play while toneroll recognizing your composition's tempo...",
     BPM_RECOGNIZED: "Tempo has been recognized! You can now start the transcription!",
@@ -4559,4 +4739,3 @@ document.getElementById("release").addEventListener("change", function () {
 //Settings.defaults.instrumentPresets.piano.kind.standard88Key.filter.freqs
 //Settings.defaults.instrumentPresets.piano.kind.standard88Key.filter.types
 //Settings.defaults.instrumentPresets.piano.kind.standard88Key.filter.Qs
-

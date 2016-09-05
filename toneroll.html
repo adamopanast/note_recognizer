@@ -39,7 +39,12 @@
         <link href='https://fonts.googleapis.com/css?family=Montserrat:400,700' rel='stylesheet' type='text/css'>
     </head>
     <body class="demo-page"> 
-        <div id="loading-wrapper"></div>
+         <div id="loadingOverlay">
+            <div id="loadingSpinner">
+                <div class="double-bounce1"></div>
+                <div class="double-bounce2"></div>
+            </div>
+        </div>
         <div id="board" style="position:relative; width:100%; overflow: auto; z-index:10;">
             <div id="pianoroll" class="content"> 
                 <div class="canvas-container" style="position:relative;">
@@ -126,7 +131,6 @@
                         <div class="metronome"><input id="metronomeActivate" type="checkbox" name="Metronome" value="Off">M<br></div>
                         <div class="tap"><button id="tap" name="Tap" class="custom-button">Tap</button></div>
                         <div class="tempo"><input type="number" id="tempo" value="120" min="40" max="200"> bpm</div>
-                        <div class="auto" style="display:none"><input type="checkbox" id="autoTempo" name="Auto Tempo" class="custom-button" value="Off" >Auto<br></div>
                     </div>
                 </div>
             </div>
@@ -200,6 +204,12 @@
                     <div class="modal-body">
                         <h5>settings text</h5>
                         <div id="tunerDetector" class="vague">
+                            <div class="canvas-wrapper">
+                                <canvas class="tunerCanvas" style="position:absolute; margin-bottom:100px; z-index: 0;">
+                                </canvas>
+                                <canvas class="tunerOverlayCanvas" style="position:absolute; margin-bottom:100px; background-color: transparent; z-index: 1;">
+                                </canvas>
+                            </div>
                             <div class="tunerPitch"><span id="tunerPitch">-   </span>Hz</div>
                             <div class="tunerNote"><span id="tunerNote">- </span></div>   
                             <div class="tunerDetune"><div id="tunerDetune" class="flat"><span id="tunerDetune_amt">- </span><span id="flat"> cents ♭</span><span id="sharp"> cents ♯</span></div></div>
